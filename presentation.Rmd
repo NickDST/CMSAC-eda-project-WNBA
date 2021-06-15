@@ -73,6 +73,8 @@ There are many many columns, but we are mainly interested in the coordinates of 
 ---
 # Question 1
 
+Do the best teams in the WNBA take different kinds of shots than the rest of the league?
+
 --
 ### sub point 1
 
