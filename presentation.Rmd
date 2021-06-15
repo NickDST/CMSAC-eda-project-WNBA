@@ -63,6 +63,8 @@ name: Data Structure
 
 ## How the data is structured
 
+Each row represents a shot taken by a WNBA player
+
 
 <!-- New Slide -->
 ---
