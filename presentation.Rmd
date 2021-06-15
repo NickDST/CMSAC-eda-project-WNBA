@@ -1,9 +1,10 @@
 ---
 title: "WNBA EDA Project"
-subtitle: "&#x2694;&#xFE0F; xaringan +<br/>&#x1F60E; xaringanthemer"  
+subtitle: "\"lets get this bread\" - Yoda"  
 author: 
-  - "Yihui Xie"
-  - "Garrick Aden-Buie"
+  - "Erin Franke"
+  - "Matthew Yep"
+  - "Nick Ho"
 date: '`r Sys.Date()`'
 output:
   xaringan::moon_reader:
@@ -63,26 +64,26 @@ name: Data Structure
 ## How the data is structured
 
 
+<!-- New Slide -->
 ---
-
 # Question 1
 
 --
 ### sub point 1
 
 
+<!-- New Slide -->
 ---
 class: inverse center middle
 # Question 2
 
 --
-
 ```
 class: inverse center middle
 ```
 
+<!-- New Slide -->
 ---
-
 # Question 3
 
 ```{r, echo=FALSE}
@@ -93,9 +94,8 @@ print("the code for this chunk will not be displayed")
 ```
 
 
-
+<!-- New Slide -->
 ---
-
 # Question 4
 
 
