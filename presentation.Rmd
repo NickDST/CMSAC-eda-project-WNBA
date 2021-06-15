@@ -46,7 +46,7 @@ Text can be **bold**, _italic_, ~~strikethrough~~, or `inline code`.
 
 [Link to another slide](#colors).
 
-### Lorem Ipsum
+### Lorem Ipsum - CMU CAMP PRESENTATION
 
 Dolor imperdiet nostra sapien scelerisque praesent curae metus facilisis dignissim tortor. 
 Lacinia neque mollis nascetur neque urna velit bibendum. 
