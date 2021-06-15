@@ -61,15 +61,12 @@ Himenaeos suspendisse leo varius mus risus sagittis aliquet venenatis duis nec.
 ---
 name: Data Structure
 
-## How the data is structured - impiortant question
+## How the data is structured
 
-Each row represents a shot taken by a WNBA players! 
+Each row represents a shot taken by a WNBA player
 
-```{r, eval=FALSE}
-a <- 2
-print(a)
-```
 
+There are many many columns, but we are mainly interested in the coordinates of the shot locations, shots taken in the 4th quarter, and how shots differed across quarters
 
 
 <!-- New Slide -->
