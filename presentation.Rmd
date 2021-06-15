@@ -83,6 +83,7 @@ Do the best teams in the WNBA take different kinds of shots than the rest of the
 ---
 class: inverse center middle
 # Question 2
+Which players in the WNBA are the most clutch shooters? 
 
 --
 ```
