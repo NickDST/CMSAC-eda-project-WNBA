@@ -58,6 +58,8 @@ Himenaeos suspendisse leo varius mus risus sagittis aliquet venenatis duis nec.
 
 - Ipsum dis nec porttitor urna sed
 
+- A different edit made by nick
+
 ---
 name: Data Structure
 
@@ -71,10 +73,8 @@ There are many many columns, but we are mainly interested in the coordinates of 
 
 <!-- New Slide -->
 ---
-# Question 1
-
-Do the best teams in the WNBA take different kinds of shots than the rest of the league?
-what do their shot charts like
+# Do the best teams in the WNBA take different kinds of shots than the rest of 
+the league?
 
 --
 ### sub point 1
@@ -84,7 +84,7 @@ what do their shot charts like
 ---
 class: inverse center middle
 # Question 2
-Which players in the WNBA are the most clutch shooters? 
+
 
 --
 ```
@@ -102,15 +102,10 @@ print("the code for this chunk will not be displayed")
 
 ```
 
-Nick is edititing this line. Did I spell it correctly? Who knows :)))
-
 <!-- New Slide -->
 ---
 # Question 4
 
-I might have just been dumb about this but this is a quick
-test about how this might work
 
-This is an additional edit on my end
 
 
