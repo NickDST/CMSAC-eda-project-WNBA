@@ -42,7 +42,7 @@ style_duo_accent(
 library(wehoop)
 library(tidyverse)
 library(lubridate)
-
+library(ggthemes)
 ```
 
 
@@ -67,15 +67,28 @@ library(readr)
 
 sea_df <- read_csv("nick_data/sea_df.csv")
 sea_df <- sea_df %>% 
-  mutate(game_id = as.factor(game_id),
-         min_idx = as.integer(min_idx))
+  mutate(game_id = as.character(game_id),
+         min_idx = as.integer(min_idx)) %>%
+  mutate(game_date = case_when(game_id == 401320570 ~ "LV @ SEA 5/15", 
+          game_id == 401320578 ~ "SEA @ MN 5/20", 
+          game_id == 401320583 ~ "SEA @ DAL 5/22", 
+          game_id == 401320590 ~ "CONN @ SEA 5/25", 
+          game_id == 401320595 ~ "MN @ SEA 5/28", 
+          game_id == 401320605 ~ "IND @ SEA 6/1", 
+          game_id == 401320610 ~ "DAL @ SEA 6/4", 
+          game_id == 401320617 ~ "SEA @ ATL 6/9", 
+          TRUE ~ game_id))
 
 sea_df %>% 
-  ggplot(aes(x = min_idx, y = sea_traj, color = game_id)) +
+  ggplot(aes(x = min_idx, y = sea_traj, color = game_date)) +
   geom_line() + 
   geom_point() + 
   ylim(0,60) + 
-  labs(title = "The SEA Distance Trajectories for 8 games binned per each 5 minutes")
+  labs(title = "The SEA Distance Trajectories for 8 games binned per each 5 minutes", x = "minute index (5 minute intervals)", y = "Seattle trajectory", color = "game") + 
+  theme_minimal()+
+  theme(plot.title = element_text(size = 15), 
+        plot.background = element_rect("aliceblue"), 
+        axis.text.y = element_text(size = 15)) 
 
 ```
 
@@ -122,7 +135,9 @@ annotated_game_df %>%
   geom_line(aes(x = min_idx, y = sea_traj, color = game_title, group = game_id)) +
   facet_wrap(~game_cluster, ncol = 1) + 
   # scale_x_continuous(breaks = seq(0, )) +
-  labs(title = "Binned (summed) shot distance for each team binned per distance", x = "Feet from Hoop", y = "Summed Distance")
+  labs(title = "Binned (summed) shot distance for each team binned per distance", x = "Feet from Hoop", y = "Summed Distance", color = "game") + 
+  theme_minimal()+
+  theme(plot.title = element_text(size = 15))
 ```
 ]
 
