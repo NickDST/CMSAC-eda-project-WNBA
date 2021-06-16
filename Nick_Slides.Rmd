@@ -42,6 +42,8 @@ style_duo_accent(
 library(wehoop)
 library(tidyverse)
 library(lubridate)
+library(ggdendro)
+library(protoclust)
 
 ```
 
@@ -111,7 +113,9 @@ annotated_game_df <- sea_df %>%
 
 .pull-left[
 ```{r, echo=FALSE, fig.height=4}
-plot(game_hclust)
+game_hclust$labels <- lookup_table$game_title
+ggdendrogram(game_hclust, size = 2) + labs(y = "Dissimilarity between games", title = "Cluster Dendrogram of the SEA games")  +
+  theme(plot.title = element_text(size = 14, face = "bold"), axis.text.x = element_text(size = 14, face = "bold")) 
 ```
 ]
 
@@ -198,6 +202,92 @@ bin_counts %>%
 ]
 
 
+---
+
+# Clustering the accuracy + distance for each team
+
+```{r, include=FALSE}
+
+wsd <- readRDS("nick_data/wsdHclust.rds")
+distance_percent_df <- readRDS("nick_data/distance_percent_df.rds")
+team_abbrv_list <- unique(wsd$away_team_abbrev)
+
+
+```
+
+
+```{r, echo=FALSE}
+distance_percent_df <- distance_percent_df %>% 
+  mutate(feet_from_hoop = idx * 2)
+
+distance_percent_df %>% 
+  ggplot() + 
+  geom_line(aes(x = feet_from_hoop, y = percent, color = team_id)) +
+  labs(title = "Binned Shooting Percentage for each team binned per 2 Feet", x = "Feet from Hoop", y = "Shooting Percentage")
+```
+
+---
+# Top teams show similar shot accuracy patterns
+
+--
+.pull-left[
+- Weighted Euclidean Distance
+
+- Weighted by where shots are most common
+
+$$ d(a, b) = \sqrt{ \sum{} w_i (a_i - b_i)^2}$$
+]
+
+--
+
+.pull-right[
+
+```{r, echo=FALSE, height = 5}
+
+team_hclust <- readRDS("nick_data/team_hclust.rds")
+plot(team_hclust)
+
+## assign the lookup table based on how many clusters we want
+team_cluster_lookup <- tibble(team_names = team_abbrv_list , team_cluster = as.factor(cutree(team_hclust, k = 3)))
+
+## annotating the original distance_percent_df with the clusters assigned
+annotated_distance_percent_df <- distance_percent_df %>% 
+  left_join(team_cluster_lookup, by = c("team_id" = "team_names"))
+
+annotated_distance_percent_df <- annotated_distance_percent_df %>% 
+  mutate(feet_from_hoop = idx * 2)
+
+## graph the clusters
+annotated_distance_percent_df %>% 
+  ggplot() + 
+  geom_line(aes(x = feet_from_hoop, y = percent, color = team_id, group = team_id)) +
+  # scale_x_continuous(breaks = seq(0, )) +
+  facet_wrap(~team_cluster, ncol=1) +
+  labs(title = "Binned Shooting Percentage for each team binned per distance", x = "Feet from Hoop", y = "Shooting Percentage")
+
+```
+]
+
+
+---
+
+# Top teams also show similar defensive patterns
+
+--
+
+.pull-left[
+
+- How much a team decreases the shot accuracy of another team in a game
+
+]
+
+--
+
+.pull-right[
+
+- some picture idk
+
+]
 
 
 
