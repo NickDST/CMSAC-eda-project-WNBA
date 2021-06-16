@@ -10,7 +10,7 @@ output:
       highlightStyle: github
       highlightLines: true
       ratio: 16:9
-      countIncrementalSlides: true
+      countIncrementalSlides: FALSE
 ---
 
 ```{r setup, include=FALSE}
@@ -43,16 +43,19 @@ library(stringr)
 library(ggthemes)
 library(ggtext)
 library(sportyR)
-#devtools::install_github(repo = "saiemgilani/wehoop", force = TRUE)
-wnba_pbp_data <- load_wnba_pbp(2021)
-# Get the shots and clean this data a bit:
-wnba_shots_data <- wnba_pbp_data %>%
-  filter(shooting_play)
-# Remove unnecessary columns:
-wnba_shots_data <- wnba_shots_data %>%
-  dplyr::select(-shooting_play, -id, -participants_2_athlete_id,
-                -type_abbreviation, -season, -season_type, 
-                -home_team_spread, -game_spread, -home_favorite)
+# #devtools::install_github(repo = "saiemgilani/wehoop", force = TRUE)
+# #wnba_pbp_data <- load_wnba_pbp(2021)
+# # Get the shots and clean this data a bit:
+# wnba_shots_data <- wnba_pbp_data %>%
+#   filter(shooting_play)
+# # Remove unnecessary columns:
+# wnba_shots_data <- wnba_shots_data %>%
+#   dplyr::select(-shooting_play, -id, -participants_2_athlete_id,
+#                 -type_abbreviation, -season, -season_type, 
+#                 -home_team_spread, -game_spread, -home_favorite)
+
+wnba_shots_data <- read_csv("wnba_shots_data.csv")
+wnba_shots <- read_csv("matt_data/wnba_shots.csv")
 ```
 
 ## Motivation
@@ -62,10 +65,10 @@ wnba_shots_data <- wnba_shots_data %>%
   - At both the college and pro level, women's basketball has far less recognition than men's
   
   - This EDA experience can help us get our hands dirty with WNBA data and spark questions for future analysis for both for ourselves and listeners
-
-![The gym at 2021 March Madness for women (left) versus men (right)](https://i.cbc.ca/1.5956191.1616160435!/fileImage/httpImage/image.jpg_gen/derivatives/16x9_940/weights.jpg){width=20%}
   
---
+```{r, out.width = "50%" ,echo=FALSE, fig.align = 'center', fig.cap = "The gym at 2021 March Madness for women (left) versus men (right)"}
+knitr::include_graphics("https://i.cbc.ca/1.5956191.1616160435!/fileImage/httpImage/image.jpg_gen/derivatives/16x9_940/weights.jpg")
+```
 
 <!-- New Slide -->
 ---
@@ -86,20 +89,17 @@ wnba_shots_data <- wnba_shots_data %>%
   - Score
   - Team and player shooting
 ]
-
-
-```{r, echo=FALSE, out.width = "50%"}
+```{r out.width='30%', echo = FALSE, fig.align='center'}
 data_example <- wnba_shots_data %>%
   mutate(shooter = word(text, 1, 2)) %>%
-  select(type_text, clock_display_value, shooter, period_display_value, home_score, away_score, coordinate_x, coordinate_y)
+  rename(`shot type` = type_text, clock = clock_display_value, period = period_display_value, x = coordinate_x, y = coordinate_y) %>%
+  select(`shot type`, clock, shooter, period, x, y)
 knitr::kable(head(data_example), format = 'html')
 ```
 
---
-
 ---
 ## Question 1: What are each WNBA teams' favorite spots to shoot from? 
-```{r, echo=FALSE, fig.width = 11, fig.height = 6}
+```{r, echo = FALSE, fig.width = 15, fig.height = 6, fig.align='center'}
 geom_basketball(league = "WNBA", full_surf = FALSE, rotate = TRUE) + 
   stat_summary_hex(data = filter(wnba_shots, coordinate_y <= 40), 
                    mapping = aes(x = coordinate_x - 25, y = coordinate_y - 47 + 4, 
@@ -109,10 +109,10 @@ geom_basketball(league = "WNBA", full_surf = FALSE, rotate = TRUE) +
   scale_fill_gradient(low = "darkblue", high = "darkorange") +
   facet_wrap(~ team_record, ncol = 4) + theme(legend.position = "bottom")
 ```
---
+
 <!-- New Slide -->
 ---
-## Diving deeper... Are there patterns of where the best teams like to shoot from?
+### Diving deeper... Are there patterns of where the best teams like to shoot from?
 ```{r, echo=FALSE, fig.width = 15, fig.height = 4}
 five_teams <- filter(wnba_shots, team_name %in% c("Las Vegas", "Connecticut", "Seattle", "New York","Indiana"))
 geom_basketball(league = "WNBA", full_surf = FALSE, rotate = TRUE) + 
@@ -124,10 +124,10 @@ geom_basketball(league = "WNBA", full_surf = FALSE, rotate = TRUE) +
   scale_fill_gradient(low = "darkblue", high = "darkorange") +
   facet_wrap(~ team_record, ncol = 5) + theme(legend.position = "bottom") 
 ```
---
+
 <!-- New Slide -->
 ---
-## What spots do the top scorers on the Storm shoot from? 
+### What spots do the top scorers on the Storm shoot from? 
 ```{r, echo=FALSE, fig.width = 11, fig.height = 5.5}
 seattle_top_scorers <- wnba_shots %>%
   filter(team_name == "Seattle") %>%
@@ -139,8 +139,8 @@ seattle_top_scorers %>%
   geom_bar(position = "dodge", colour = "black") + theme_bw() +
   labs(y = "Count", 
        x = "Shooter",
-       title = "The Storm shoot ALOT of three pointers",
-       subtitle = "Stewart, Loyd and Bird each average over 5 three pointers a game, shooting at a respective 36, 40 and 47% clip ") + 
+       title = "The Storm shoot A LOT of three pointers",
+       subtitle = "Stewart, Loyd and Bird each average over 5 three pointers a game, shooting at a respective 36, 40 and 47% clip", fill = "type of shot") + 
   scale_fill_manual(values = c("darkgreen","chartreuse4","goldenrod1","gold1")) +
   theme(panel.background = element_rect(fill = "burlywood"),
         axis.text=element_text(size=12),
@@ -148,11 +148,10 @@ seattle_top_scorers %>%
         plot.title = element_text(size = 14, face = "bold"),
         plot.subtitle = element_text(size = 12))
 ```
---
 
 <!-- New Slide -->
 ---
-## What about the Las Vegas Aces top scorers? 
+### What about the Las Vegas Aces top scorers? 
 ```{r, echo=FALSE, fig.width = 11, fig.height = 5.5}
 vegas_top_scorers <- wnba_shots %>%
   filter(team_name == "Las Vegas") %>%
@@ -165,7 +164,7 @@ vegas_top_scorers %>%
   labs(y = "Count", 
        x = "Shooter",
        title = "The Aces look to feed the bigs down low and take higher percentage shots in the paint",
-       subtitle = "The WNBA league average height is 5-9.Young, Wilson and Cambage tower at 6 foot, 6-4 and 6-8") +
+       subtitle = "The WNBA league average height is 5-9.Young, Wilson and Cambage tower at 6 foot, 6-4 and 6-8", fill = "type of shot") +
   scale_fill_manual(values = c("gray14","grey74","red","gold3")) +
   theme(panel.background = element_rect(fill = "burlywood"),
         axis.text=element_text(size=12),
@@ -173,13 +172,11 @@ vegas_top_scorers %>%
         plot.title = element_text(size = 14, face = "bold"),
         plot.subtitle = element_text(size = 12))
 ```
---
 
 <!-- New Slide -->
 ---
 ## Question 2: How do WNBA players perform in the clutch?
-
-```{r, echo=FALSE, fig.width = 11, fig.height = 7}
+```{r out.width='80%', echo = FALSE, fig.align='center'}
 clutchshots <- wnba_shots_data %>%
   filter(period_display_value %in% c("4th Quarter", "OT"), abs(home_score - away_score) <= 3) %>%
   mutate(score_difference = abs(home_score - away_score),
@@ -222,7 +219,7 @@ non_clutch_situations %>%
   ggplot(aes(y=fct_reorder(shooter, `max_percent`), x=`shot percentage`, fill = `clutch situation?`)) +
   geom_col(position = "identity", alpha = 0.5) + 
   geom_vline(xintercept = 0.5050, color = "darkblue", type = "dashed")+
-  labs(y = "", x = "shooting percentage", title = "Who should be shooting in the clutch in the WNBA?", subtitle = "Shooting percentage for players with 15+ shots in Q4 or OT when the score is within one possession", fill = "situation") + 
+  labs(y = "", x = "shooting percentage", title = "Jewell Loyd is great in the clutch, A'ja Wilson is even better than usual", subtitle = "Shooting percentage for players with 15+ shots in Q4 or OT when the score is within one possession", fill = "situation") + 
   scale_fill_manual(values=c("deepskyblue1", "red"))+
   theme_fivethirtyeight() +
   theme(plot.title.position = "plot", 
@@ -231,13 +228,11 @@ non_clutch_situations %>%
   annotate("text", y=1.2, x=0.575, label= "WNBA average \nshooting percentage", cex = 2.5, fontface = "bold", color = "darkblue") +
   scale_x_continuous(expand = c(0,0)) 
 ```
- 
---
   
 <!-- New Slide -->
 ---
 ### Does shot accuracy change in the clutch? 
-```{r, echo=FALSE, fig.width = 12, fig.height = 10}
+```{r out.width='80%', echo = FALSE, fig.align='center'}
 shot_types <- wnba_shots_data %>%
   mutate(clutch_time = period_display_value %in% c("4th Quarter", "OT") & abs(home_score - away_score) <= 3) %>%
   select(clutch_time, period_display_value, home_score, `away_score`, everything()) %>%
@@ -270,13 +265,10 @@ shot_percentage_grouped %>%
   annotate(geom = "text", x = 0.67, y=2.35, label = "Layups shot in the clutch \nhave a 4.27% lower shot accuracy \nthan non-clutch situations", fontface="bold", cex = 3)
 ```
 
-
---
-
 <!-- New Slide -->
 ---
 ### Players with an above average shooting percentage in the clutch shoot differently than players shooting below average
-```{r, echo=FALSE, fig.width = 12, fig.height=10}
+```{r out.width='80%', echo = FALSE, fig.align='center'}
 test1 <- wnba_shots_data %>%
   mutate(shooter = word(text, 1, 2)) %>%
   filter(
@@ -296,9 +288,7 @@ geom_basketball(league = "WNBA", full_surf = FALSE, rotate = TRUE) +
   scale_color_manual(values = c("firebrick1", "cyan")) +
   # Facet by team name and make 4 columns of plots
   facet_wrap(~ above_average_shooter) +
-  labs(title = "Below average clutch shooters take (and miss) a consider amount more mid-range shots than above average shooters", color = "shot made") + 
-  theme(plot.title = element_text(size = 15), 
-    legend.position = "bottom")
+  labs(title = "Below average clutch shooters take <strong><span style='color:#8D0000'>(and miss)</span></strong></b> more mid-range shots than above average shooters", color = "shot made") + 
+  theme(plot.title = element_markdown(size = 10), 
+    legend.position = "none")
 ```
-
---
