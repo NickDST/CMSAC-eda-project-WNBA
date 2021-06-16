@@ -1,0 +1,203 @@
+---
+title: "Exploratory Data Analysis on Shot Data for the 2021 WNBA season"
+subtitle: "Nick Ho, Matthew Yep, Erin Franke"
+date: '`r Sys.Date()`'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    nature:
+      slideNumberFormat: "%current%"
+      highlightStyle: github
+      highlightLines: true
+      ratio: 16:9
+      countIncrementalSlides: true
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(
+  fig.width=9, fig.height=3.5, fig.retina=3,
+  out.width = "100%",
+  cache = FALSE,
+  echo = TRUE,
+  message = FALSE, 
+  warning = FALSE,
+  fig.show = TRUE,
+  hiline = TRUE
+)
+```
+
+```{r xaringan-themer, include=FALSE, warning=FALSE}
+library(xaringanthemer)
+style_duo_accent(
+  primary_color = "#1381B0",
+  secondary_color = "#FF961C",
+  inverse_header_color = "#FFFFFF"
+)
+```
+
+```{r, include = FALSE, warning = FALSE}
+
+## loading in the data
+library(wehoop)
+library(tidyverse)
+library(lubridate)
+
+```
+
+
+## What are the distance shooting patterns for the seattle team over time?
+
+```{r, include = FALSE}
+
+
+## Preparing the data ----------------
+sea_wgames <- readRDS("nick_data/sea_wgames.rds")
+
+
+```
+
+---
+# A way to quantify the shooting distance as a trajectory
+
+
+```{r, echo=FALSE}
+library(readr)
+
+
+sea_df <- read_csv("nick_data/sea_df.csv")
+sea_df <- sea_df %>% 
+  mutate(game_id = as.factor(game_id),
+         min_idx = as.integer(min_idx))
+
+sea_df %>% 
+  ggplot(aes(x = min_idx, y = sea_traj, color = game_id)) +
+  geom_line() + 
+  geom_point() + 
+  ylim(0,60) + 
+  labs(title = "The SEA Distance Trajectories for 8 games binned per each 5 minutes")
+
+```
+
+---
+# dist matrix idk
+
+```{r, include=FALSE}
+total_games <- c(401320570, 401320578, 401320583, 401320590, 401320595, 401320605, 401320610, 401320617)
+
+game_dist <- readRDS("nick_data/game_dist.RData")
+game_hclust <- hclust(game_dist, method = "complete")
+
+## assign the lookup table based on how many clusters we want
+game_cluster_lookup <- tibble(game_id = as.factor(total_games) , game_cluster = as.factor(cutree(game_hclust, k = 3)))
+
+
+## annotating the original distance_percent_df with the clusters assigned
+lookup_table <- sea_wgames %>% 
+  mutate(game_id = as.factor(game_id)) %>% 
+  dplyr::select(game_id, game_title) %>% 
+  right_join(game_cluster_lookup, by = c("game_id" = "game_id")) %>% 
+  unique()
+
+lookup_table[5,2] = "SEA (W) vs MIN (L) pt2"
+lookup_table[7,2] = "SEA (W) vs DAL (L) pt2"
+
+## annotating the original distance_percent_df with the clusters assigned
+annotated_game_df <- sea_df %>% 
+  left_join(lookup_table, by = c("game_id" = "game_id"))
+
+```
+
+
+.pull-left[
+```{r, echo=FALSE, fig.height=4}
+plot(game_hclust)
+```
+]
+
+.pull-right[
+```{r, echo=FALSE, fig.height=8}
+annotated_game_df %>% 
+  ggplot() + 
+  geom_line(aes(x = min_idx, y = sea_traj, color = game_title, group = game_id)) +
+  facet_wrap(~game_cluster, ncol = 1) + 
+  # scale_x_continuous(breaks = seq(0, )) +
+  labs(title = "Binned (summed) shot distance for each team binned per distance", x = "Feet from Hoop", y = "Summed Distance")
+```
+]
+
+---
+# Interpreting the grouped trajectories
+
+
+.pull-left[
+```{r, fig.height=7, echo=FALSE}
+sea_wgames %>% 
+  filter(distance <= 30 & period_number < 5) %>% 
+  filter(game_cluster == 1) %>%
+  filter(wl_abbrv == "SEA (W)") %>% 
+  ggplot() + 
+  geom_vline(xintercept = 600, , color = "blue", size=1.5, alpha = 0.3) +
+  geom_vline(xintercept = 600*2, , color = "blue", size=1.5, alpha = 0.3)+
+  geom_vline(xintercept = 600*3, , color = "blue", size=1.5, alpha = 0.3) +
+  geom_point(aes(x = time_corrected, y = distance, color = shot_type, size = 0.5)) +
+  scale_shape_manual(values=c(4, 19)) +
+  geom_density2d(aes(x = time_corrected, y = distance)) +
+  # facet_wrap(~ game_cluster, ncol =1) + 
+  # scale_color_manual(values=c("cadetblue", "firebrick")) +
+  scale_x_time() +
+  labs(title = "Development of distance through the 4 quarters for CLUSTER 1", y = "Distance From Hoop", x = "Time") + 
+  theme_bw()
+```
+
+]
+
+.pull-right[
+```{r, fig.height=7, echo=FALSE}
+sea_wgames %>% 
+  filter(distance <= 30 & period_number < 5) %>% 
+  filter(game_cluster == 2) %>%
+  filter(wl_abbrv == "SEA (W)") %>% 
+  ggplot() + 
+  geom_vline(xintercept = 600, , color = "blue", size=1.5, alpha = 0.3) +
+  geom_vline(xintercept = 600*2, , color = "blue", size=1.5, alpha = 0.3)+
+  geom_vline(xintercept = 600*3, , color = "blue", size=1.5, alpha = 0.3) +
+  geom_point(aes(x = time_corrected, y = distance, color = shot_type, size = 0.5)) +
+  scale_shape_manual(values=c(4, 19)) +
+  geom_density2d(aes(x = time_corrected, y = distance)) +
+  # facet_wrap(~ game_cluster, ncol =1) + 
+  # scale_color_manual(values=c("cadetblue", "firebrick")) +
+  scale_x_time() +
+  labs(title = "Development of distance through the 4 quarters for CLUSTER 2", y = "Distance From Hoop", x = "Time") + 
+  theme_bw()
+```
+]
+
+---
+
+## The Seattle team game + shot movements can be primarily put into 2 categories
+
+.pull-left[
+- Cluster 1 attempts more shots in the paint (1st Quarter) 
+- Cluster 2 attempts much more shots in the mid range (2nd Quarter)
+- Both Cluster 1 and Cluster 2 don't use the mid-range in the 3rd and 4th Quarter
+]
+
+.pull-right[
+```{r, echo=FALSE, fig.height = 6, fig.width=9}
+bin_counts <- readRDS("nick_data/SEA_bin_counts.rds")
+
+bin_counts %>% 
+  filter(game_cluster %in% c(1, 2)) %>%
+  ggplot(aes(x = shot_type, y = frac_shot_by_quarter)) + 
+  facet_wrap(~period_number ) +
+  geom_bar(aes(fill = game_cluster) , stat="identity", position = "dodge") +
+  labs(title = "Type of Shots taken by each clustered team Normalized by the quarter") +
+  theme_bw()
+```
+]
+
+
+
+
+
