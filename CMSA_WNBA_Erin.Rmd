@@ -179,7 +179,7 @@ The average WNBA shooting percentage is 0.5050.
 
 Goal is to display shots taken clutch situations for shooters with an above average shooting percentage in the clutch versus those with a below average shooting percentage in the clutch. Data is taken from all players with at least 15 shots clutch situations. 
 
-```{r, fig.width = 10}
+```{r}
 test1 <- wnba_shots_data %>%
   mutate(shooter = word(text, 1, 2)) %>%
   filter(
@@ -200,8 +200,8 @@ geom_basketball(league = "WNBA", full_surf = FALSE, rotate = TRUE) +
   scale_color_manual(values = c("firebrick1", "cyan")) +
   # Facet by team name and make 4 columns of plots
   facet_wrap(~ above_average_shooter) +
-  labs(title = "Below average clutch shooters take (and miss) a consider amount more mid-range shots than above average shooters", color = "shot made") + 
-  theme(plot.title = element_text(size = 10), 
+  labs(title = "Below average clutch shooters take <strong><span style='color:#8D0000'>(and miss)</span></strong></b> a consider amount more mid-range shots than above average shooters", color = "shot made") + 
+  theme(plot.title = element_markdown(size = 10), 
     legend.position = "bottom")
 ```
 
