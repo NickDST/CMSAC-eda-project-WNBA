@@ -55,6 +55,7 @@ library(protoclust)
 
 - Are there any patterns or common groupings we can find in SEA's winning games?
 
+
 ```{r, include = FALSE}
 
 
@@ -76,14 +77,14 @@ sea_df <- read_csv("nick_data/sea_df.csv")
 sea_df <- sea_df %>% 
   mutate(game_id = as.character(game_id),
          min_idx = as.integer(min_idx)) %>%
-  mutate(game_date = case_when(game_id == 401320570 ~ "LV @ SEA 5/15", 
-          game_id == 401320578 ~ "SEA @ MN 5/20", 
-          game_id == 401320583 ~ "SEA @ DAL 5/22", 
-          game_id == 401320590 ~ "CONN @ SEA 5/25", 
-          game_id == 401320595 ~ "MN @ SEA 5/28", 
-          game_id == 401320605 ~ "IND @ SEA 6/1", 
-          game_id == 401320610 ~ "DAL @ SEA 6/4", 
-          game_id == 401320617 ~ "SEA @ ATL 6/9", 
+  mutate(game_date = case_when(game_id == 401320570 ~ "SEA vs LV 5/15", 
+          game_id == 401320578 ~ "SEA vs MN 5/20", 
+          game_id == 401320583 ~ "SEA vs DAL 5/22", 
+          game_id == 401320590 ~ "SEA vs CONN 5/25", 
+          game_id == 401320595 ~ "SEA vs MN 5/28", 
+          game_id == 401320605 ~ "SEA vs IND 6/1", 
+          game_id == 401320610 ~ "SEA vs DAL 6/4", 
+          game_id == 401320617 ~ "SEA vs ATL 6/9", 
           TRUE ~ game_id))
 
 sea_df %>% 
@@ -91,7 +92,7 @@ sea_df %>%
   geom_line() + 
   geom_point() + 
   ylim(0,60) + 
-  labs(title = "The SEA Distance Trajectories for 8 games binned per each 5 minutes", x = "minute index (5 minute intervals)", y = "Seattle trajectory", color = "game") + 
+  labs(title = "The SEA Distance Trajectories for 8 games binned per each 5 minutes", x = "minute index (5 minute intervals)", y = "Seattle (Summed) Trajectory", color = "game") + 
   theme_minimal()+
   theme(plot.title = element_text(size = 15), 
         plot.background = element_rect("aliceblue"), 
@@ -133,10 +134,12 @@ annotated_game_df <- sea_df %>%
 
 ```
 
---
+---
+
+# Clustering Team-Trajectories
 
 .pull-left[
-```{r, echo=FALSE, fig.height=5}
+```{r, echo=FALSE, fig.height=6, fig.width=8}
 game_hclust$labels <- lookup_table$game_title
 ggdendrogram(game_hclust, size = 2) + labs(y = "Dissimilarity between games", title = "Cluster Dendrogram of the SEA games")  +
   theme(plot.title = element_text(size = 14, face = "bold"), axis.text.x = element_text(size = 14, face = "bold")) 
@@ -145,7 +148,7 @@ ggdendrogram(game_hclust, size = 2) + labs(y = "Dissimilarity between games", ti
 
 
 .pull-right[
-```{r, echo=FALSE, fig.height=5}
+```{r, echo=FALSE, fig.height=8, fig.width=8}
 annotated_game_df %>% 
   ggplot() + 
   geom_line(aes(x = min_idx, y = sea_traj, color = game_title, group = game_id)) +
@@ -158,7 +161,7 @@ annotated_game_df %>%
 ]
 
 ---
-# SEA shows two main shooting tendencies
+## SEA shows two main shooting tendencies
 
 
 .pull-left[
@@ -174,11 +177,18 @@ sea_wgames %>%
   geom_point(aes(x = time_corrected, y = distance, color = shot_type, size = 0.5)) +
   scale_shape_manual(values=c(4, 19)) +
   geom_density2d(aes(x = time_corrected, y = distance)) +
-  # facet_wrap(~ game_cluster, ncol =1) + 
-  # scale_color_manual(values=c("cadetblue", "firebrick")) +
   scale_x_time() +
-  labs(title = "Shot distance from games in Cluster 1 shows no midrange and later 3pt focus in 4th Quarter", y = "Distance From Hoop", x = "Time") + 
-  theme_bw()
+  labs(title = "Shot distance from games in Cluster 1 shows no \n midrange and later 3pt focus in 4th Quarter", y = "Distance From Hoop", x = "Time") + 
+  theme_bw()+
+  guides(size = FALSE) + 
+  theme(plot.title = element_text(size = 20,face = "bold"), 
+        axis.text.x = element_text(size = 14, face = "bold"),
+        axis.text.y = element_text(size = 14, face = "bold"),
+        axis.title = element_text(size = 20, face = "bold"),
+        legend.key.size = unit(2, 'cm'),
+        legend.title  = element_text(size=15),
+        legend.text  = element_text(size=15),
+        ) 
 ```
 
 ]
@@ -199,8 +209,17 @@ sea_wgames %>%
   # facet_wrap(~ game_cluster, ncol =1) + 
   # scale_color_manual(values=c("cadetblue", "firebrick")) +
   scale_x_time() +
-  labs(title = "Shot distance from games in Cluster 2 show more midrange and earlier 3pt focus in 4th Quarter", y = "Distance From Hoop", x = "Time") + 
-  theme_bw()
+  labs(title = "Shot distance from games in Cluster 2 show more \n midrange and earlier 3pt focus in 4th Quarter", y = "Distance From Hoop", x = "Time") + 
+  theme_bw()+
+  guides(size = FALSE) + 
+  theme(plot.title = element_text(size = 20,face = "bold"), 
+        axis.text.x = element_text(size = 14, face = "bold"),
+        axis.text.y = element_text(size = 14, face = "bold"),
+        axis.title = element_text(size = 20, face = "bold"),
+        legend.key.size = unit(2, 'cm'),
+        legend.title  = element_text(size=15),
+        legend.text  = element_text(size=15),
+        ) 
 ```
 ]
 
@@ -226,12 +245,13 @@ distance_percent_df <- distance_percent_df %>%
 distance_percent_df %>% 
   ggplot() + 
   geom_line(aes(x = feet_from_hoop, y = percent, color = team_id)) +
-  labs(title = "Binned Shooting Percentage for each team binned per 2 Feet", x = "Feet from Hoop", y = "Shooting Percentage") + 
-  theme_bw()
+  labs(title = "Binned Shooting Percentage for each team binned per 2 feet", x = "Feet from Hoop", y = "Shooting Percentage") + 
+  theme_bw() + 
+  labs(color='Teams') 
 ```
 
 ---
-# Top teams show similar shot accuracy patterns
+# Top teams show similar accuracy patterns
 
 --
 .pull-left[
@@ -262,7 +282,7 @@ bin_weights_df %>%
 
 .pull-right[
 
-```{r, echo=FALSE, height = 5}
+```{r, echo=FALSE}
 
 team_hclust <- readRDS("nick_data/team_hclust.rds")
 # plot(team_hclust)
@@ -282,13 +302,20 @@ ggdendrogram(team_hclust, size = 2) + labs(title = "Top teams share similar scor
 
 # plot(team_hclust)
 
+```
+
+```{r, echo=FALSE, fig.height = 5}
+
 # ## graph the clusters
 annotated_distance_percent_df %>%
   ggplot() +
   geom_line(aes(x = feet_from_hoop, y = percent, color = team_id, group = team_id)) +
   # scale_x_continuous(breaks = seq(0, )) +
   facet_wrap(~team_cluster, ncol=1) +
-  labs(title = "Binned Shooting Percentage for each team binned per distance", x = "Feet from Hoop", y = "Shooting Percentage")
+  labs(title = "Binned Shooting Percentage for each team binned per distance", x = "Feet from Hoop", y = "Shooting Percentage") +
+  theme_bw() +
+  theme(plot.title = element_text(size = 20, face = "bold"), 
+        axis.title = element_text(size = 15, face = "bold"),)
 
 ```
 ]
@@ -321,7 +348,8 @@ def_percent_df <- readRDS("nick_data/def_percent_df.rds")
 def_percent_df %>% 
   ggplot() + 
   geom_line(aes(x = idx, y = def_percent, color = team_id)) +
-  labs(title = "Binned Defensive Percentage for each team binned per distance", x = "Bucket Feet from Hoop", y = "Defense_Percentage")
+  labs(title = "Binned Defensive Percentage for each team binned per distance", x = "Bucket Feet from Hoop", y = "Defense_Percentage") + 
+  theme_bw()
 
 def_team_hclust <- readRDS("nick_data/def_team_hclust.rds")
 
