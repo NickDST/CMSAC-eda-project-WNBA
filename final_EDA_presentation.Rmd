@@ -1,0 +1,650 @@
+---
+title: "Exploratory Data Analysis on Shot Data for the 2021 WNBA season"
+subtitle: "Nick Ho, Matthew Yep, Erin Franke"
+date: '`r Sys.Date()`'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    nature:
+      slideNumberFormat: "%current%"
+      highlightStyle: github
+      highlightLines: true
+      ratio: 16:9
+      countIncrementalSlides: FALSE
+---
+
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(
+  fig.width=9, fig.height=3.5, fig.retina=3,
+  out.width = "100%",
+  cache = FALSE,
+  echo = TRUE,
+  message = FALSE, 
+  warning = FALSE,
+  fig.show = TRUE,
+  hiline = TRUE
+)
+```
+
+```{r xaringan-themer, include=FALSE, warning=FALSE}
+library(xaringanthemer)
+style_duo_accent(
+  primary_color = "#1381B0",
+  secondary_color = "#FF961C",
+  inverse_header_color = "#FFFFFF"
+)
+```
+
+```{r, include = FALSE, warning = FALSE}
+library(wehoop)
+library(tidyverse)
+library(stringr)
+library(ggthemes)
+library(ggtext)
+library(sportyR)
+# #devtools::install_github(repo = "saiemgilani/wehoop", force = TRUE)
+# #wnba_pbp_data <- load_wnba_pbp(2021)
+# # Get the shots and clean this data a bit:
+# wnba_shots_data <- wnba_pbp_data %>%
+#   filter(shooting_play)
+# # Remove unnecessary columns:
+# wnba_shots_data <- wnba_shots_data %>%
+#   dplyr::select(-shooting_play, -id, -participants_2_athlete_id,
+#                 -type_abbreviation, -season, -season_type, 
+#                 -home_team_spread, -game_spread, -home_favorite)
+wnba_shots_data <- read_csv("wnba_shots_data.csv")
+wnba_shots <- read_csv("matt_data/wnba_shots.csv")
+```
+
+## Motivation
+
+- **Motivation:** there has been very little analysis done with WNBA data
+
+  - At both the college and pro level, women's basketball has far less recognition than men's
+  
+  - This EDA experience can help us get our hands dirty with WNBA data and spark questions for future analysis for both for ourselves and listeners
+  
+```{r, out.width = "50%" ,echo=FALSE, fig.align = 'center', fig.cap = "The gym at 2021 March Madness for women (left) versus men (right)"}
+knitr::include_graphics("https://i.cbc.ca/1.5956191.1616160435!/fileImage/httpImage/image.jpg_gen/derivatives/16x9_940/weights.jpg")
+```
+
+<!-- New Slide -->
+---
+## Data
+
+.pull-left[
+- We used data for the **first 9-12 games** each of the 12 WNBA teams played starting May 13, 2021. 
+  - **64 games total**
+
+- Data structured by row, each representing a shot 
+]
+.pull-right[
+
+- We specifically used information on:
+  - Shot coordinates
+  - Period/clock time
+  - Shot type & result
+  - Score
+  - Team and player shooting
+]
+```{r out.width='30%', echo = FALSE, fig.align='center'}
+data_example <- wnba_shots_data %>%
+  mutate(shooter = word(text, 1, 2)) %>%
+  rename(`shot type` = type_text, clock = clock_display_value, period = period_display_value, x = coordinate_x, y = coordinate_y) %>%
+  select(`shot type`, clock, shooter, period, x, y)
+knitr::kable(head(data_example), format = 'html')
+```
+
+---
+### Each WNBA teams' favorite spots to shoot from 
+```{r, echo = FALSE, fig.width = 15, fig.height = 8.5, fig.align='center'}
+geom_basketball(league = "WNBA", full_surf = FALSE, rotate = TRUE) + 
+  stat_summary_hex(data = filter(wnba_shots, coordinate_y <= 40), 
+                   mapping = aes(x = coordinate_x - 25, y = coordinate_y - 47 + 4, 
+                                 z = shot_taken, group = -1), 
+                   binwidth = c(4,4),
+                   fun = function(x) ifelse (length(x) > 8, sum(x), NA)) +
+  scale_fill_gradient(low = "darkblue", high = "darkorange") +
+  facet_wrap(~ team_record, ncol = 4) + theme(legend.position = "bottom")
+```
+
+<!-- New Slide -->
+---
+### The best teams in the WNBA adopt the Daryl Morey offensive strategy
+```{r, echo=FALSE, fig.width = 15, fig.height = 6, fig.cap= "Key takeaway: The top teams take efficient shots;  they prioritize launching from downtown and attacking the basket"}
+five_teams <- filter(wnba_shots, team_name %in% c("Las Vegas", "Connecticut", "Seattle", "New York"))
+geom_basketball(league = "WNBA", full_surf = FALSE, rotate = TRUE) + 
+  stat_summary_hex(data = filter(five_teams, coordinate_y <= 40), 
+                   mapping = aes(x = coordinate_x - 25, y = coordinate_y - 47 + 4, 
+                                 z = shot_taken, group = -1), 
+                   binwidth = c(4,4),
+                   fun = function(x) ifelse (length(x) > 8, sum(x), NA)) +
+  scale_fill_gradient(low = "darkblue", high = "darkorange") +
+  facet_wrap(~ team_record, ncol = 5) + theme(legend.position = "bottom") 
+```
+<!-- .footnote[Key takeaway: The top teams take efficient shots;  they prioritize launching from downtown and attacking the basket] -->
+
+<!-- New Slide -->
+---
+## The Storm shoot ALOT of three pointers 
+```{r, echo=FALSE, fig.width = 11, fig.height = 5.5}
+seattle_top_scorers <- wnba_shots %>%
+  filter(team_name == "Seattle") %>%
+  filter(shooter %in% c("Breanna Stewart", "Jewell Loyd", "Sue Bird"))
+seattle_top_scorers %>%
+  ggplot(aes(x = shooter, 
+             fill = type_of_shot)) + 
+  geom_bar(position = "dodge", colour = "black") + theme_bw() +
+  labs(y = "Count", 
+       x = "Shooter",
+       title = "Stewart, Loyd and Bird each average over 5 three pointers a game, shooting at a respective 36, 40 and 47% clip", 
+       fill = "type of shot") + 
+  scale_fill_manual(values = c("darkgreen","chartreuse4","goldenrod1","gold1")) +
+  theme(panel.background = element_rect(fill = "burlywood"),
+        axis.text=element_text(size=12),
+        axis.title = element_text(size=14),
+        plot.title = element_text(size = 14, face = "bold"),
+        plot.subtitle = element_text(size = 12),
+        legend.position = "bottom")
+```
+
+<!-- New Slide -->
+---
+## The Aces attack the paint 
+```{r, echo=FALSE, fig.width = 11, fig.height = 5.5}
+vegas_top_scorers <- wnba_shots %>%
+  filter(team_name == "Las Vegas") %>%
+  filter(shooter %in% c("Jackie Young", "A'ja Wilson", "Liz Cambage"))
+vegas_top_scorers %>%
+  ggplot(aes(x = shooter, 
+             fill = type_of_shot)) + 
+  geom_bar(position = "dodge", colour = "black") + theme_bw() +
+  labs(y = "Count", 
+       x = "Shooter",
+       title = "The Aces look to feed the bigs down low and take higher percentage shots in the paint",
+       subtitle = "The WNBA league average height is 5-9.Young, Wilson and Cambage tower at 6 foot, 6-4 and 6-8", 
+       fill = "type of shot") +
+  scale_fill_manual(values = c("gray14","grey74","red","gold3")) +
+  theme(panel.background = element_rect(fill = "burlywood"),
+        axis.text=element_text(size=12),
+        axis.title = element_text(size=14),
+        plot.title = element_text(size = 14, face = "bold"),
+        plot.subtitle = element_text(size = 12),
+        legend.position = "bottom")
+```
+
+
+
+<!-- New Slide -->
+---
+## Question 2: How do WNBA players perform in the clutch?
+```{r out.width='80%', echo = FALSE, fig.align='center'}
+clutchshots <- wnba_shots_data %>%
+  filter(period_display_value %in% c("4th Quarter", "OT"), abs(home_score - away_score) <= 3) %>%
+  mutate(score_difference = abs(home_score - away_score),
+         shooter = word(text, 1, 2)) %>%
+  select(game_id, home_score, away_score, score_difference, shooter, scoring_play, clock_display_value, type_text, text, clock_minutes, clock_seconds, everything()) 
+#filter for players with at least 15 shots in these clutch situations
+quarter4players <- clutchshots %>%
+  group_by(shooter) %>%
+  count() %>%
+  arrange(desc(n)) %>%
+  head(n = 11) 
+#use an inner join to filter the main dataset and calculate the clutch shooting percentage for each player
+clutch_players <- clutchshots %>%
+  inner_join(quarter4players, by = "shooter") %>%
+  group_by(shooter, scoring_play) %>%
+  summarize(count = n()) %>%
+  pivot_wider(names_from = scoring_play, values_from = count) %>%
+  rename(`shot missed` = `FALSE`, `shot made` = `TRUE`) %>%
+  mutate(`clutch shot percentage` = `shot made` /(`shot made`+`shot missed`)) %>%
+  arrange(desc(`clutch shot percentage`))
+`%!in%` <- Negate(`%in%`)
+non_clutch_situations <- wnba_shots_data %>%
+  filter(period_display_value %!in% c("4th Quarter", "OT")| abs(home_score - away_score) > 3) %>%
+  mutate(score_difference = abs(home_score - away_score),
+         shooter = word(text, 1, 2)) %>%
+  select(game_id, home_score, away_score, score_difference, shooter, scoring_play, clock_display_value, type_text, text, clock_minutes, clock_seconds, everything()) %>%
+  inner_join(quarter4players, by = "shooter") %>%
+  select(-n) %>%
+  group_by(shooter, scoring_play) %>%
+  summarize(count = n()) %>%
+  pivot_wider(names_from = scoring_play, values_from = count) %>%
+  rename(`shot missed 2` = `FALSE`, `shot made 2` = `TRUE`) %>%
+  mutate(`non clutch shot percentage` = `shot made 2` /(`shot made 2`+`shot missed 2`)) %>%
+  arrange(desc(`non clutch shot percentage`))
+non_clutch_situations %>%
+  inner_join(clutch_players, by = "shooter") %>%
+  mutate(max_percent = case_when(`clutch shot percentage` > `non clutch shot percentage` ~ `clutch shot percentage`, TRUE ~ `non clutch shot percentage`)) %>%
+   rename(`non clutch` = `non clutch shot percentage`, `clutch` = `clutch shot percentage`) %>%
+  pivot_longer(cols = c(`non clutch`, `clutch`), names_to = "clutch situation?", values_to = "shot percentage") %>%
+  ggplot(aes(y=fct_reorder(shooter, `max_percent`), x=`shot percentage`, fill = `clutch situation?`)) +
+  geom_col(position = "identity", alpha = 0.5) + 
+  geom_vline(xintercept = 0.5050, color = "darkblue", type = "dashed")+
+  labs(y = "", x = "shooting percentage", title = "Jewell Loyd is great in the clutch, A'ja Wilson is even better than usual", subtitle = "Shooting percentage for players with 15+ shots in Q4 or OT when the score is within one possession", fill = "situation") + 
+  scale_fill_manual(values=c("deepskyblue1", "red"))+
+  theme_fivethirtyeight() +
+  theme(plot.title.position = "plot", 
+        plot.title = element_text(size = 13), 
+        plot.subtitle = element_text(size = 10))+
+  annotate("text", y=1.2, x=0.575, label= "WNBA average \nshooting percentage", cex = 2.5, fontface = "bold", color = "darkblue") +
+  scale_x_continuous(expand = c(0,0)) 
+```
+  
+<!-- New Slide -->
+---
+### Does shot accuracy change in the clutch? 
+```{r out.width='80%', echo = FALSE, fig.align='center'}
+shot_types <- wnba_shots_data %>%
+  mutate(clutch_time = period_display_value %in% c("4th Quarter", "OT") & abs(home_score - away_score) <= 3) %>%
+  select(clutch_time, period_display_value, home_score, `away_score`, everything()) %>%
+  mutate(shot_group = case_when(
+    type_text %in% c("Alley Oop Layup Shot", "Cutting Finger Roll Layup Shot", "Cutting Layup Shot", "Driving Finger Roll Layup", "Driving Layup Shot", "Finger Roll Layup", "Layup Driving Reverse", "Layup Running Reverse", "Layup Shot", "Layup Shot Putback", "Reverse Layup Shot", "Running Finger Roll Layup", "Running Layup Shot") ~ "Layup", 
+    type_text %in% c("Cutting Dunk Shot", "Driving Dunk Shot", "Reverse Dunk Shot", "Running Dunk Shot") ~ "Dunk",
+    type_text %in% c("Driving Floating Bank Jump Shot", "Driving Floating Jump Shot", "Driving Jump Shot Bank", "Fade Away Bank Jump Shot", "Fade Away Jump Shot", "Floating Jump Shot", "Jump Shot", "Jump Shot Bank", "Pullup Bank Jump Shot", "Pullup Jump Shot", "Putback Dunk Shot", "Running Jump Shot", "Running Pullup Jump Shot", "Step Back Bank Jump Shot", "Step Back Jump Shot", "Turnaround Bank Jump Shot", "Turnaround Fade Away Jump Shot", "Turnaround Fadeaway Bank Jump Shot", "Turnaround Jump Shot") ~ "Jump Shot", 
+    type_text %in% c("Driving Hook Shot", "Hook Driving Bank", "Hook Shot", "Hook Shot Bank", "Hook Turnaround Bank", "Turnaround Hook Shot") ~ "Hook Shot", 
+    type_text %in% c("Free Throw - 1 of 1", "Free Throw - 1 of 2", "Free Throw - 1 of 3", "Free Throw - 2 of 2", "Free Throw - 2 of 3", "Free Throw - 3 of 3", "Free Throw - Clear Path 1 of 2", "Free Throw - Clear Path 2 of 2", "Free Throw - Flagrant 1 of 1", "Free Throw - Flagrant 1 of 2", "Free Throw - Flagrant 1 of 3", "Free Throw - Flagrant 2 of 2", "Free Throw - Flagrant 2 of 3", "Free Throw - Flagrant 3 of 3", "Free Throw - Technical") ~ "Free Throw",
+    type_text == "Tip Shot" ~ "Tip Shot", 
+    TRUE ~ type_text)) %>%
+  group_by(shot_group, scoring_play, clutch_time) %>%
+  count()
+shot_percentage_grouped <- tibble(shot_type = c("Free Throw", "Free Throw", "Jump Shot", "Jump Shot", "Layup", "Layup"), percentage = c(1674/2078, 122/159, 111/324, 1868/5145, 92/179, 1390/2497), clutch_time = c(FALSE, TRUE, TRUE, FALSE, TRUE, FALSE))
+shot_percentage_grouped %>%
+  ggplot(aes(y=shot_type, x=percentage, fill = clutch_time)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c("dodgerblue3", "darkred"))+
+  labs(title = "WNBA shooting percentage drops under stress", y = "", x = "", fill = "Clutch situation?", subtitle = "<strong><span style='color:#8D0000'>Clutch situations</span></strong></b> are defined as shots taken in a one possession game in Q4 or OT") + 
+  theme_fivethirtyeight() + 
+  theme(plot.title.position = "plot", 
+        plot.subtitle = element_markdown(), 
+        legend.position = "none")+
+  scale_x_continuous(expand = c(0,0)) + 
+  geom_curve(
+  aes(x = 0.67, y = 2.6, xend = 0.55, yend = 3.25),
+  data = shot_percentage_grouped,
+  arrow = arrow(length = unit(0.03, "npc"))
+)+
+  annotate(geom = "text", x = 0.67, y=2.35, label = "Layups shot in the clutch \nhave a 4.27% lower shot accuracy \nthan non-clutch situations", fontface="bold", cex = 3)
+```
+
+<!-- New Slide -->
+---
+### Players with an above average shooting percentage in the clutch shoot differently than players shooting below average
+```{r out.width='80%', echo = FALSE, fig.align='center'}
+test1 <- wnba_shots_data %>%
+  mutate(shooter = word(text, 1, 2)) %>%
+  filter(
+    shooter %in% c("Jonquel Jones", "Jewell Loyd", "Marina Mabrey", "Skylar Diggins-Smith", "Brittney Griner", "DeWanna Bonner", "Diana Taurasi", "Diamond DeShields", "Breanna Stewart", "Courtney Vandersloot", "Courtney Williams"), 
+    coordinate_x > 0, coordinate_y >0, coordinate_y <35,
+    period_display_value %in% c("4th Quarter", "OT"), abs(home_score - away_score) <= 3) %>%
+  mutate(above_average_shooter = shooter %in% c("Jonquel Jones", "Jewell Loyd", "Marina Mabrey", "Skylar Diggins-Smith", "Brittney Griner")) %>%
+  mutate(above_average_shooter = case_when(above_average_shooter == "FALSE" ~ "Below average", above_average_shooter == "TRUE" ~ "Above average")) %>%
+  mutate(scoring_play = case_when(scoring_play == "FALSE" ~ "no", scoring_play == "TRUE" ~ "yes"))
+# Make the same plot as above but facet by the team_name to display
+# each team's shot charts separately
+geom_basketball(league = "WNBA", full_surf = FALSE, rotate = TRUE) +
+  geom_point(data = test1, 
+             aes(x = coordinate_x - 25, y = coordinate_y - 47 +4,
+                 color = scoring_play),
+             alpha = 0.8, size = 1) + # modifying the point size
+  scale_color_manual(values = c("firebrick1", "cyan")) +
+  # Facet by team name and make 4 columns of plots
+  facet_wrap(~ above_average_shooter) +
+  labs(title = "Below average clutch shooters take <strong><span style='color:#8D0000'>(and miss)</span></strong></b> more mid-range shots than above average shooters", color = "shot made") + 
+  theme(plot.title = element_markdown(size = 10), 
+    legend.position = "none")
+```
+
+---
+
+```{r, include = FALSE, warning = FALSE}
+
+## loading in the data
+library(wehoop)
+library(tidyverse)
+library(lubridate)
+
+library(ggthemes)
+library(ggdendro)
+library(protoclust)
+
+
+```
+
+
+## Question 3: How does the places SEA shoot from change over time?
+
+- Are there any patterns or common groupings we can find in SEA's winning games?
+
+--
+
+- We can create this average shot-distance from the hoop over every 5 minutes for **each** of the 8 games SEA won
+
+
+
+```{r, include = FALSE}
+
+
+## Preparing the data ----------------
+sea_wgames <- readRDS("nick_data/sea_wgames.rds")
+
+
+```
+
+---
+# Mapping Seattle's average shooting distance over time
+
+
+```{r, echo=FALSE}
+library(readr)
+
+
+sea_df <- read_csv("nick_data/sea_df.csv")
+sea_df <- sea_df %>% 
+  mutate(game_id = as.character(game_id),
+         min_idx = as.integer(min_idx)) %>%
+  mutate(game_date = case_when(game_id == 401320570 ~ "SEA vs LV 5/15", 
+          game_id == 401320578 ~ "SEA vs MN 5/20", 
+          game_id == 401320583 ~ "SEA vs DAL 5/22", 
+          game_id == 401320590 ~ "SEA vs CONN 5/25", 
+          game_id == 401320595 ~ "SEA vs MN 5/28", 
+          game_id == 401320605 ~ "SEA vs IND 6/1", 
+          game_id == 401320610 ~ "SEA vs DAL 6/4", 
+          game_id == 401320617 ~ "SEA vs ATL 6/9", 
+          TRUE ~ game_id))
+
+sea_df %>% 
+  ggplot(aes(x = min_idx, y = sea_traj, color = game_date)) +
+  geom_line() + 
+  geom_point() + 
+  ylim(0,60) + 
+  labs(title = "The SEA Distance Trajectories for 8 games binned per each 5 minutes", x = "minute index (5 minute intervals)", y = "Seattle (Summed) Trajectory", color = "game") + 
+  theme_minimal()+
+  theme(plot.title = element_text(size = 15), 
+        plot.background = element_rect("aliceblue"), 
+        axis.text.y = element_text(size = 15)) 
+
+```
+
+
+---
+## Distance Between Team-Trajectories
+
+- (simple solution) Euclidian distance between trajectories (A, B)
+  - Add the difference between each bucket for A and B and square root the result
+  
+- Hierarchical clutering on the distance matrix
+
+```{r, include=FALSE}
+total_games <- c(401320570, 401320578, 401320583, 401320590, 401320595, 401320605, 401320610, 401320617)
+
+game_dist <- readRDS("nick_data/game_dist.RData")
+game_hclust <- hclust(game_dist, method = "complete")
+
+## assign the lookup table based on how many clusters we want
+game_cluster_lookup <- tibble(game_id = as.factor(total_games) , game_cluster = as.factor(cutree(game_hclust, k = 3)))
+
+
+## annotating the original distance_percent_df with the clusters assigned
+lookup_table <- sea_wgames %>% 
+  mutate(game_id = as.factor(game_id)) %>% 
+  dplyr::select(game_id, game_title) %>% 
+  right_join(game_cluster_lookup, by = c("game_id" = "game_id")) %>% 
+  unique()
+
+lookup_table[5,2] = "SEA (W) vs MIN (L) pt2"
+lookup_table[7,2] = "SEA (W) vs DAL (L) pt2"
+
+## annotating the original distance_percent_df with the clusters assigned
+annotated_game_df <- sea_df %>% 
+  left_join(lookup_table, by = c("game_id" = "game_id"))
+
+```
+
+---
+
+# Clustering Team-Trajectories
+
+.pull-left[
+```{r, echo=FALSE, fig.height=6, fig.width=8}
+game_hclust$labels <- lookup_table$game_title
+ggdendrogram(game_hclust, size = 2) + labs(y = "Dissimilarity between games", title = "Cluster Dendrogram of the SEA games")  +
+  theme(plot.title = element_text(size = 14, face = "bold"), axis.text.x = element_text(size = 14, face = "bold")) 
+```
+]
+
+
+.pull-right[
+```{r, echo=FALSE, fig.height=8, fig.width=8}
+annotated_game_df %>% 
+  ggplot() + 
+  geom_line(aes(x = min_idx, y = sea_traj, color = game_title, group = game_id)) +
+  facet_wrap(~game_cluster, ncol = 1) + 
+  # scale_x_continuous(breaks = seq(0, )) +
+  labs(title = "Binned (summed) shot distance for each team binned per distance", x = "Feet from Hoop", y = "Summed Distance", color = "game") + 
+  theme_minimal()+
+  theme(plot.title = element_text(size = 15))
+```
+]
+
+---
+## SEA shows two main shooting tendencies
+
+
+.pull-left[
+```{r, fig.height=8, fig.width=8, echo=FALSE}
+sea_wgames %>% 
+  filter(distance <= 30 & period_number < 5) %>% 
+  filter(game_cluster == 1) %>%
+  filter(wl_abbrv == "SEA (W)") %>% 
+  ggplot() + 
+  geom_vline(xintercept = 600, , color = "blue", size=1.5, alpha = 0.3) +
+  geom_vline(xintercept = 600*2, , color = "blue", size=1.5, alpha = 0.3)+
+  geom_vline(xintercept = 600*3, , color = "blue", size=1.5, alpha = 0.3) +
+  geom_point(aes(x = time_corrected, y = distance, color = shot_type, size = 0.5)) +
+  scale_shape_manual(values=c(4, 19)) +
+  geom_density2d(aes(x = time_corrected, y = distance)) +
+  scale_x_time() +
+  labs(title = "Shot distance from games in Cluster 1 shows no \n midrange and later 3pt focus in 4th Quarter", y = "Distance From Hoop", x = "Time") + 
+  theme_bw()+
+  guides(size = FALSE) + 
+  theme(plot.title = element_text(size = 20,face = "bold"), 
+        axis.text.x = element_text(size = 14, face = "bold"),
+        axis.text.y = element_text(size = 14, face = "bold"),
+        axis.title = element_text(size = 20, face = "bold"),
+        legend.key.size = unit(2, 'cm'),
+        legend.title  = element_text(size=15),
+        legend.text  = element_text(size=15),
+        ) 
+```
+
+]
+
+.pull-right[
+```{r, fig.height=8, fig.width=8, echo=FALSE}
+sea_wgames %>% 
+  filter(distance <= 30 & period_number < 5) %>% 
+  filter(game_cluster == 2) %>%
+  filter(wl_abbrv == "SEA (W)") %>% 
+  ggplot() + 
+  geom_vline(xintercept = 600, , color = "blue", size=1.5, alpha = 0.3) +
+  geom_vline(xintercept = 600*2, , color = "blue", size=1.5, alpha = 0.3)+
+  geom_vline(xintercept = 600*3, , color = "blue", size=1.5, alpha = 0.3) +
+  geom_point(aes(x = time_corrected, y = distance, color = shot_type, size = 0.5)) +
+  scale_shape_manual(values=c(4, 19)) +
+  geom_density2d(aes(x = time_corrected, y = distance)) +
+  # facet_wrap(~ game_cluster, ncol =1) + 
+  # scale_color_manual(values=c("cadetblue", "firebrick")) +
+  scale_x_time() +
+  labs(title = "Shot distance from games in Cluster 2 show more \n midrange and earlier 3pt focus in 4th Quarter", y = "Distance From Hoop", x = "Time") + 
+  theme_bw()+
+  guides(size = FALSE) + 
+  theme(plot.title = element_text(size = 20,face = "bold"), 
+        axis.text.x = element_text(size = 14, face = "bold"),
+        axis.text.y = element_text(size = 14, face = "bold"),
+        axis.title = element_text(size = 20, face = "bold"),
+        legend.key.size = unit(2, 'cm'),
+        legend.title  = element_text(size=15),
+        legend.text  = element_text(size=15),
+        ) 
+```
+]
+
+
+---
+
+# Clustering teams by shot accuracy?
+
+```{r, include=FALSE}
+
+wsd <- readRDS("nick_data/wsdHclust.rds")
+distance_percent_df <- readRDS("nick_data/distance_percent_df.rds")
+team_abbrv_list <- unique(wsd$away_team_abbrev)
+
+
+```
+
+
+```{r, echo=FALSE}
+distance_percent_df <- distance_percent_df %>% 
+  mutate(feet_from_hoop = idx * 2)
+
+distance_percent_df %>% 
+  ggplot() + 
+  geom_line(aes(x = feet_from_hoop, y = percent, color = team_id)) +
+  labs(title = "Binned Shooting Percentage for each team binned per 2 feet", x = "Feet from Hoop", y = "Shooting Percentage") + 
+  theme_bw() + 
+  labs(color='Teams') 
+```
+
+---
+# Top teams show similar accuracy patterns
+
+--
+.pull-left[
+- Weighted Euclidean Distance
+
+
+- $$ dist(a, b) = \sqrt{ \sum{} w_i (a_i - b_i)^2}$$
+
+- Weighted by where shots are most common
+
+```{r, echo=FALSE}
+bin_weights_df <- readRDS("nick_data/bin_weights_df.rds")
+
+bin_weights_df %>% 
+  ggplot(aes(y = bin_weights, x = feet)) +
+  geom_line() + 
+  geom_point(aes(size = 3, color="red")) + 
+  guides(color = FALSE, size = FALSE) + 
+  labs(title = "Layups and 3pt bins have the largest weights", x = "Feet from Hoop", y = "Bin Weights") + 
+  theme_minimal()
+
+```
+
+
+]
+
+--
+
+.pull-right[
+
+```{r, echo=FALSE}
+
+team_hclust <- readRDS("nick_data/team_hclust.rds")
+# plot(team_hclust)
+
+## assign the lookup table based on how many clusters we want
+team_cluster_lookup <- tibble(team_names = team_abbrv_list , team_cluster = as.factor(cutree(team_hclust, k = 3)))
+
+## annotating the original distance_percent_df with the clusters assigned
+annotated_distance_percent_df <- distance_percent_df %>% 
+  left_join(team_cluster_lookup, by = c("team_id" = "team_names"))
+
+annotated_distance_percent_df <- annotated_distance_percent_df %>% 
+  mutate(feet_from_hoop = idx * 2)
+
+ggdendrogram(team_hclust, size = 2) + labs(title = "Top teams share similar scoring accuracy patterns", y = "Dissimilarity of Team Score Accuracies")  +
+  theme(plot.title = element_text(size = 14, face = "bold"), axis.text.x = element_text(size = 20, face = "bold"))
+
+# plot(team_hclust)
+
+```
+
+```{r, echo=FALSE, fig.height = 5}
+
+# ## graph the clusters
+annotated_distance_percent_df %>%
+  ggplot() +
+  geom_line(aes(x = feet_from_hoop, y = percent, color = team_id, group = team_id)) +
+  # scale_x_continuous(breaks = seq(0, )) +
+  facet_wrap(~team_cluster, ncol=1) +
+  labs(title = "Binned Shooting Percentage for each team binned per distance", x = "Feet from Hoop", y = "Shooting Percentage") +
+  theme_bw() +
+  theme(plot.title = element_text(size = 20, face = "bold"), 
+        axis.title = element_text(size = 15, face = "bold"),)
+
+```
+]
+
+
+---
+
+# Top teams also show similar defensive patterns
+
+--
+
+.pull-left[
+
+- Defense: How much a team decreases the shot accuracy of another team in a game
+- $$D_x = \frac{\sum^n_1 (a_x - b_x)}{n}$$
+  - D is the defense for a team for that bin
+  - a is the average shooting of opponent over all games (previous slide)
+  - b is the average shooting score for opponent in current
+  - x is the current bucket (2 feet)
+]
+
+--
+
+.pull-right[
+
+```{r, echo = FALSE}
+
+def_percent_df <- readRDS("nick_data/def_percent_df.rds")
+
+def_percent_df %>% 
+  ggplot() + 
+  geom_line(aes(x = idx, y = def_percent, color = team_id)) +
+  labs(title = "Binned Defensive Percentage for each team binned per distance", x = "Bucket Feet from Hoop", y = "Defense_Percentage") + 
+  theme_bw()
+
+def_team_hclust <- readRDS("nick_data/def_team_hclust.rds")
+
+
+ggdendrogram(def_team_hclust, size = 2) + labs(title = "Top teams share similar defensive patterns", y = "Dissimilarity of Team Defensiveness")  +
+  theme(plot.title = element_text(size = 14, face = "bold"), axis.text.x = element_text(size = 20, face = "bold"))
+
+
+```
+]
+
+---
+# Shot data is essential to strategy
+- **Shot Charts:** Teams can analyze their upcoming opponent’s frequent shot locations and design their defensive scheme to counter these hot spots
+
+
+- **Clutch data:** Coaches can draw up end-of-game plays to create shots their most clutch scorers
+
+- **Development of Shots across Quarters:** Teams can find patterns in how their opponents' coaches adjust their offense throughout the game --> anticipate these changes and counter them
+
+
+
+
+
+
+
+
+
+
