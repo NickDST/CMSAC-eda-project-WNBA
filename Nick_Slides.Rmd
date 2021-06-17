@@ -51,7 +51,9 @@ library(protoclust)
 ```
 
 
-## What are the distance shooting patterns for the seattle team over time?
+## Question 3: How does the places SEA shoot from change over time?
+
+- Are there any patterns or common groupings we can find in SEA's winning games?
 
 ```{r, include = FALSE}
 
@@ -98,7 +100,12 @@ sea_df %>%
 ```
 
 ---
-# dist matrix idk
+## Distance Between Team-Trajectories
+
+- (simple solution) Euclidian distance between trajectories (A, B)
+  - Add the difference between each bucket for A and B and square root the result
+  
+- Hierarchical clutering on the distance matrix
 
 ```{r, include=FALSE}
 total_games <- c(401320570, 401320578, 401320583, 401320590, 401320595, 401320605, 401320610, 401320617)
@@ -126,17 +133,19 @@ annotated_game_df <- sea_df %>%
 
 ```
 
+--
 
 .pull-left[
-```{r, echo=FALSE, fig.height=4}
+```{r, echo=FALSE, fig.height=5}
 game_hclust$labels <- lookup_table$game_title
 ggdendrogram(game_hclust, size = 2) + labs(y = "Dissimilarity between games", title = "Cluster Dendrogram of the SEA games")  +
   theme(plot.title = element_text(size = 14, face = "bold"), axis.text.x = element_text(size = 14, face = "bold")) 
 ```
 ]
 
+
 .pull-right[
-```{r, echo=FALSE, fig.height=8}
+```{r, echo=FALSE, fig.height=5}
 annotated_game_df %>% 
   ggplot() + 
   geom_line(aes(x = min_idx, y = sea_traj, color = game_title, group = game_id)) +
@@ -149,11 +158,11 @@ annotated_game_df %>%
 ]
 
 ---
-# Interpreting the grouped trajectories
+# SEA shows two main shooting tendencies
 
 
 .pull-left[
-```{r, fig.height=7, echo=FALSE}
+```{r, fig.height=8, fig.width=8, echo=FALSE}
 sea_wgames %>% 
   filter(distance <= 30 & period_number < 5) %>% 
   filter(game_cluster == 1) %>%
@@ -168,14 +177,14 @@ sea_wgames %>%
   # facet_wrap(~ game_cluster, ncol =1) + 
   # scale_color_manual(values=c("cadetblue", "firebrick")) +
   scale_x_time() +
-  labs(title = "Development of distance through the 4 quarters for CLUSTER 1", y = "Distance From Hoop", x = "Time") + 
+  labs(title = "Shot distance from games in Cluster 1 shows no midrange and later 3pt focus in 4th Quarter", y = "Distance From Hoop", x = "Time") + 
   theme_bw()
 ```
 
 ]
 
 .pull-right[
-```{r, fig.height=7, echo=FALSE}
+```{r, fig.height=8, fig.width=8, echo=FALSE}
 sea_wgames %>% 
   filter(distance <= 30 & period_number < 5) %>% 
   filter(game_cluster == 2) %>%
@@ -190,31 +199,7 @@ sea_wgames %>%
   # facet_wrap(~ game_cluster, ncol =1) + 
   # scale_color_manual(values=c("cadetblue", "firebrick")) +
   scale_x_time() +
-  labs(title = "Development of distance through the 4 quarters for CLUSTER 2", y = "Distance From Hoop", x = "Time") + 
-  theme_bw()
-```
-]
-
----
-
-## The Seattle team game + shot movements can be primarily put into 2 categories
-
-.pull-left[
-- Cluster 1 attempts more shots in the paint (1st Quarter) 
-- Cluster 2 attempts much more shots in the mid range (2nd Quarter)
-- Both Cluster 1 and Cluster 2 don't use the mid-range in the 3rd and 4th Quarter
-]
-
-.pull-right[
-```{r, echo=FALSE, fig.height = 6, fig.width=9}
-bin_counts <- readRDS("nick_data/SEA_bin_counts.rds")
-
-bin_counts %>% 
-  filter(game_cluster %in% c(1, 2)) %>%
-  ggplot(aes(x = shot_type, y = frac_shot_by_quarter)) + 
-  facet_wrap(~period_number ) +
-  geom_bar(aes(fill = game_cluster) , stat="identity", position = "dodge") +
-  labs(title = "Type of Shots taken by each clustered team Normalized by the quarter") +
+  labs(title = "Shot distance from games in Cluster 2 show more midrange and earlier 3pt focus in 4th Quarter", y = "Distance From Hoop", x = "Time") + 
   theme_bw()
 ```
 ]
@@ -222,7 +207,7 @@ bin_counts %>%
 
 ---
 
-# Clustering the accuracy + distance for each team
+# Clustering teams by shot accuracy?
 
 ```{r, include=FALSE}
 
@@ -241,7 +226,8 @@ distance_percent_df <- distance_percent_df %>%
 distance_percent_df %>% 
   ggplot() + 
   geom_line(aes(x = feet_from_hoop, y = percent, color = team_id)) +
-  labs(title = "Binned Shooting Percentage for each team binned per 2 Feet", x = "Feet from Hoop", y = "Shooting Percentage")
+  labs(title = "Binned Shooting Percentage for each team binned per 2 Feet", x = "Feet from Hoop", y = "Shooting Percentage") + 
+  theme_bw()
 ```
 
 ---
@@ -251,9 +237,25 @@ distance_percent_df %>%
 .pull-left[
 - Weighted Euclidean Distance
 
+
+- $$ dist(a, b) = \sqrt{ \sum{} w_i (a_i - b_i)^2}$$
+
 - Weighted by where shots are most common
 
-$$ d(a, b) = \sqrt{ \sum{} w_i (a_i - b_i)^2}$$
+```{r, echo=FALSE}
+bin_weights_df <- readRDS("nick_data/bin_weights_df.rds")
+
+bin_weights_df %>% 
+  ggplot(aes(y = bin_weights, x = feet)) +
+  geom_line() + 
+  geom_point(aes(size = 3, color="red")) + 
+  guides(color = FALSE, size = FALSE) + 
+  labs(title = "Layups and 3pt bins have the largest weights", x = "Feet from Hoop", y = "Bin Weights") + 
+  theme_minimal()
+
+```
+
+
 ]
 
 --
@@ -263,7 +265,7 @@ $$ d(a, b) = \sqrt{ \sum{} w_i (a_i - b_i)^2}$$
 ```{r, echo=FALSE, height = 5}
 
 team_hclust <- readRDS("nick_data/team_hclust.rds")
-plot(team_hclust)
+# plot(team_hclust)
 
 ## assign the lookup table based on how many clusters we want
 team_cluster_lookup <- tibble(team_names = team_abbrv_list , team_cluster = as.factor(cutree(team_hclust, k = 3)))
@@ -275,9 +277,14 @@ annotated_distance_percent_df <- distance_percent_df %>%
 annotated_distance_percent_df <- annotated_distance_percent_df %>% 
   mutate(feet_from_hoop = idx * 2)
 
-## graph the clusters
-annotated_distance_percent_df %>% 
-  ggplot() + 
+ggdendrogram(team_hclust, size = 2) + labs(title = "Top teams share similar scoring accuracy patterns", y = "Dissimilarity of Team Score Accuracies")  +
+  theme(plot.title = element_text(size = 14, face = "bold"), axis.text.x = element_text(size = 20, face = "bold"))
+
+# plot(team_hclust)
+
+# ## graph the clusters
+annotated_distance_percent_df %>%
+  ggplot() +
   geom_line(aes(x = feet_from_hoop, y = percent, color = team_id, group = team_id)) +
   # scale_x_continuous(breaks = seq(0, )) +
   facet_wrap(~team_cluster, ncol=1) +
@@ -295,17 +302,37 @@ annotated_distance_percent_df %>%
 
 .pull-left[
 
-- How much a team decreases the shot accuracy of another team in a game
-
+- Defense: How much a team decreases the shot accuracy of another team in a game
+- $$D_x = \frac{\sum^n_1 (a_x - b_x)}{n}$$
+  - D is the defense for a team for that bin
+  - a is the average shooting of opponent over all games (previous slide)
+  - b is the average shooting score for opponent in current
+  - x is the current bucket (2 feet)
 ]
 
 --
 
 .pull-right[
 
-- some picture idk
+```{r, echo = FALSE}
 
+def_percent_df <- readRDS("nick_data/def_percent_df.rds")
+
+def_percent_df %>% 
+  ggplot() + 
+  geom_line(aes(x = idx, y = def_percent, color = team_id)) +
+  labs(title = "Binned Defensive Percentage for each team binned per distance", x = "Bucket Feet from Hoop", y = "Defense_Percentage")
+
+def_team_hclust <- readRDS("nick_data/def_team_hclust.rds")
+
+
+ggdendrogram(def_team_hclust, size = 2) + labs(title = "Top teams share similar defensive patterns", y = "Dissimilarity of Team Defensiveness")  +
+  theme(plot.title = element_text(size = 14, face = "bold"), axis.text.x = element_text(size = 20, face = "bold"))
+
+
+```
 ]
+
 
 
 
