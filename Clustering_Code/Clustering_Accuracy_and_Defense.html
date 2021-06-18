@@ -584,6 +584,11 @@ annotated_distance_percent_df %&gt;%
 <p>So what the defensive metric is, is really just how much a current team lowers another team’s shooting accuracy compared to that other team’s usual shooting accuracy.</p>
 <p>An example would be if we focus on the SEA team, they play against LV, MIN and IND.</p>
 <p>For each bucket of 2 feet, for each game with SEA v other team, I calculate the shooting accuracy and compare it with the overall one, then I summ it together and average it.</p>
+<p><span class="math display">\[def_x(team) = \frac{\sum (OppAvgAcc_x - OppCurrAcc_x) }{NumOpp}\]</span> x is the current bucket (e.g bucket 2 are the shots 2 feet to 4 feet from the hoop)</p>
+<p>OppAvgAcc is the opponent’s average shot accuracy in bin x</p>
+<p>OppCurrAcc is the opponent’s current shot accuracy in the game against the team of interest</p>
+<p>NumOpp is the number of opponents that the team of interest plays against</p>
+<p>That’s the main idea.</p>
 <pre class="r"><code>num_buckets = length(unique(wsd$cutDist))
 
 wsd &lt;- wsd %&gt;% 
@@ -605,19 +610,19 @@ for (curr_team in team_list){
   def_percentage = c()
   for (i in seq(length(levels(wsd$cutDist)))) {
     
-    # i = 2
-    # curr_team = &quot;SEA&quot;
+  
+
     bucket &lt;- levels(wsd$cutDist)[i]
-    # print(bucket)
+    
     curr &lt;- wsd %&gt;% 
       filter(cutDist == bucket &amp; team_abbrv != curr_team &amp; (home_team_abbrev == curr_team | away_team_abbrev == curr_team))
     
-    ## now to go through each unique opponent
+    ## now to go through each unique opponent and add the difference
     list_opp &lt;- unique(curr$team_abbrv)
     defense_val &lt;- 0
     skip &lt;- 0
     for(opp in list_opp){
-      # opp &lt;- &quot;LV&quot;
+      
       opp_avg_score_acc &lt;- nrow(filter(curr, scoring_play == TRUE &amp; team_abbrv == opp)) / nrow(filter(curr, team_abbrv == opp))
       opp_overall_avg_score_acc &lt;- filter(distance_percent_df, Bucket == bucket  &amp; team_id == opp)$percent
       

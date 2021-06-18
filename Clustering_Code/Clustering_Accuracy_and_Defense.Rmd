@@ -265,6 +265,16 @@ An example would be if we focus on the SEA team, they play against LV, MIN and I
 For each bucket of 2 feet, for each game with SEA v other team, I calculate the shooting accuracy and compare it with
 the overall one, then I summ it together and average it. 
 
+$$def_x(team) = \frac{\sum (OppAvgAcc_x - OppCurrAcc_x) }{NumOpp}$$
+x is the current bucket (e.g bucket 2 are the shots 2 feet to 4 feet from the hoop)
+
+OppAvgAcc is the opponent's average shot accuracy in bin x
+
+OppCurrAcc is the opponent's current shot accuracy in the game against the team of interest
+
+NumOpp is the number of opponents that the team of interest plays against
+
+That's the main idea. 
 
 ```{r}
 
@@ -294,19 +304,19 @@ for (curr_team in team_list){
   def_percentage = c()
   for (i in seq(length(levels(wsd$cutDist)))) {
     
-    # i = 2
-    # curr_team = "SEA"
+  
+
     bucket <- levels(wsd$cutDist)[i]
-    # print(bucket)
+    
     curr <- wsd %>% 
       filter(cutDist == bucket & team_abbrv != curr_team & (home_team_abbrev == curr_team | away_team_abbrev == curr_team))
     
-    ## now to go through each unique opponent
+    ## now to go through each unique opponent and add the difference
     list_opp <- unique(curr$team_abbrv)
     defense_val <- 0
     skip <- 0
     for(opp in list_opp){
-      # opp <- "LV"
+      
       opp_avg_score_acc <- nrow(filter(curr, scoring_play == TRUE & team_abbrv == opp)) / nrow(filter(curr, team_abbrv == opp))
       opp_overall_avg_score_acc <- filter(distance_percent_df, Bucket == bucket  & team_id == opp)$percent
       
