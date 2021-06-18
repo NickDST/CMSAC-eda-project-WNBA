@@ -1,0 +1,187 @@
+---
+title: "Exploratory Data Analysis on Shot Data for the 2021 WNBA season"
+subtitle: "Nick Ho, Matthew Yep, Erin Franke"
+date: '`r Sys.Date()`'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    nature:
+      slideNumberFormat: "%current%"
+      highlightStyle: github
+      highlightLines: true
+      ratio: 16:9
+      countIncrementalSlides: FALSE
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(
+  fig.width=9, fig.height=3.5, fig.retina=3,
+  out.width = "100%",
+  cache = FALSE,
+  echo = TRUE,
+  message = FALSE, 
+  warning = FALSE,
+  fig.show = TRUE,
+  hiline = TRUE
+)
+```
+
+```{r xaringan-themer, include=FALSE, warning=FALSE}
+library(xaringanthemer)
+style_duo_accent(
+  primary_color = "#1381B0",
+  secondary_color = "#FF961C",
+  inverse_header_color = "#FFFFFF"
+)
+```
+
+```{r, include = FALSE, warning = FALSE}
+library(wehoop)
+library(tidyverse)
+library(stringr)
+library(ggthemes)
+library(ggtext)
+library(sportyR)
+# #devtools::install_github(repo = "saiemgilani/wehoop", force = TRUE)
+# #wnba_pbp_data <- load_wnba_pbp(2021)
+# # Get the shots and clean this data a bit:
+# wnba_shots_data <- wnba_pbp_data %>%
+#   filter(shooting_play)
+# # Remove unnecessary columns:
+# wnba_shots_data <- wnba_shots_data %>%
+#   dplyr::select(-shooting_play, -id, -participants_2_athlete_id,
+#                 -type_abbreviation, -season, -season_type, 
+#                 -home_team_spread, -game_spread, -home_favorite)
+wnba_shots_data <- read_csv("wnba_shots_data.csv")
+wnba_shots <- read_csv("matt_data/wnba_shots.csv")
+```
+
+## Motivation
+
+- **Motivation:** there has been very little analysis done with WNBA data
+
+  - At both the college and pro level, women's basketball has far less recognition than men's
+  
+  - This EDA experience can help us get our hands dirty with WNBA data and spark questions for future analysis for both for ourselves and listeners
+  
+```{r, out.width = "50%" ,echo=FALSE, fig.align = 'center', fig.cap = "The gym at 2021 March Madness for women (left) versus men (right)"}
+knitr::include_graphics("https://i.cbc.ca/1.5956191.1616160435!/fileImage/httpImage/image.jpg_gen/derivatives/16x9_940/weights.jpg")
+```
+
+<!-- New Slide -->
+---
+## Data
+
+.pull-left[
+- We used data for the **first 9-12 games** each of the 12 WNBA teams played starting May 13, 2021. 
+  - **64 games total**
+
+- Data structured by row, each representing a shot 
+]
+.pull-right[
+
+- We specifically used information on:
+  - Shot coordinates
+  - Period/clock time
+  - Shot type & result
+  - Score
+  - Team and player shooting
+]
+```{r out.width='30%', echo = FALSE, fig.align='center'}
+data_example <- wnba_shots_data %>%
+  mutate(shooter = word(text, 1, 2)) %>%
+  rename(`shot type` = type_text, clock = clock_display_value, period = period_display_value, x = coordinate_x, y = coordinate_y) %>%
+  select(`shot type`, clock, shooter, period, x, y)
+knitr::kable(head(data_example), format = 'html')
+```
+
+---
+### Each WNBA teams' favorite spots to shoot from 
+```{r, echo = FALSE, fig.width = 15, fig.height = 8.5, fig.align='center'}
+geom_basketball(league = "WNBA", full_surf = FALSE, rotate = TRUE) + 
+  stat_summary_hex(data = filter(wnba_shots, coordinate_y <= 40), 
+                   mapping = aes(x = coordinate_x - 25, y = coordinate_y - 47 + 4, 
+                                 z = shot_taken, group = -1), 
+                   binwidth = c(4,4),
+                   fun = function(x) ifelse (length(x) > 8, sum(x), NA)) +
+  scale_fill_gradient(low = "darkblue", high = "darkorange") +
+  facet_wrap(~ team_record, ncol = 4) + theme(legend.position = "bottom")
+```
+
+<!-- New Slide -->
+---
+### The best teams in the WNBA adopt the Daryl Morey offensive strategy
+```{r, echo=FALSE, fig.width = 15, fig.height = 7}
+five_teams <- filter(wnba_shots, team_name %in% c("Las Vegas", "Connecticut", "Seattle", "New York"))
+geom_basketball(league = "WNBA", full_surf = FALSE, rotate = TRUE) + 
+  stat_summary_hex(data = filter(five_teams, coordinate_y <= 40), 
+                   mapping = aes(x = coordinate_x - 25, y = coordinate_y - 47 + 4, 
+                                 z = shot_taken, group = -1), 
+                   binwidth = c(4,4),
+                   fun = function(x) ifelse (length(x) > 8, sum(x), NA)) +
+  scale_fill_gradient(low = "darkblue", high = "darkorange") +
+  facet_wrap(~ team_record, ncol = 5) + theme(legend.position = "bottom") 
+```
+.footnote[Key takeaway: The top teams take efficient shots;  they prioritize launching from downtown and attacking the basket]
+
+<!-- New Slide -->
+---
+## The Storm shoot ALOT of three pointers 
+```{r, echo=FALSE, fig.width = 11, fig.height = 5.5}
+seattle_top_scorers <- wnba_shots %>%
+  filter(team_name == "Seattle") %>%
+  filter(shooter %in% c("Breanna Stewart", "Jewell Loyd", "Sue Bird"))
+seattle_top_scorers %>%
+  ggplot(aes(x = shooter, 
+             fill = type_of_shot)) + 
+  geom_bar(position = "dodge", colour = "black") + theme_bw() +
+  labs(y = "Count", 
+       x = "Shooter",
+       title = "Stewart, Loyd and Bird each average over 5 three pointers a game, shooting at a respective 36, 40 and 47% clip", 
+       fill = "type of shot") + 
+  scale_fill_manual(values = c("darkgreen","chartreuse4","goldenrod1","gold1")) +
+  theme(panel.background = element_rect(fill = "burlywood"),
+        axis.text=element_text(size=12),
+        axis.title = element_text(size=14),
+        plot.title = element_text(size = 14, face = "bold"),
+        plot.subtitle = element_text(size = 12),
+        legend.position = "bottom")
+```
+
+<!-- New Slide -->
+---
+## The Aces attack the paint 
+```{r, echo=FALSE, fig.width = 11, fig.height = 5.5}
+vegas_top_scorers <- wnba_shots %>%
+  filter(team_name == "Las Vegas") %>%
+  filter(shooter %in% c("Jackie Young", "A'ja Wilson", "Liz Cambage"))
+vegas_top_scorers %>%
+  ggplot(aes(x = shooter, 
+             fill = type_of_shot)) + 
+  geom_bar(position = "dodge", colour = "black") + theme_bw() +
+  labs(y = "Count", 
+       x = "Shooter",
+       title = "The Aces look to feed the bigs down low and take higher percentage shots in the paint",
+       subtitle = "The WNBA league average height is 5-9.Young, Wilson and Cambage tower at 6 foot, 6-4 and 6-8", 
+       fill = "type of shot") +
+  scale_fill_manual(values = c("gray14","grey74","red","gold3")) +
+  theme(panel.background = element_rect(fill = "burlywood"),
+        axis.text=element_text(size=12),
+        axis.title = element_text(size=14),
+        plot.title = element_text(size = 14, face = "bold"),
+        plot.subtitle = element_text(size = 12),
+        legend.position = "bottom")
+```
+
+---
+# Shot data is essential to strategy
+- **Shot Charts:** Teams can analyze their upcoming opponent’s frequent shot locations and design their defensive scheme to counter these hot spots
+
+
+- **Clutch data:** Coaches can draw up end-of-game plays to create shots their most clutch scorers
+
+- **Development of Shots across Quarters:** Teams can find patterns in how their opponents' coaches adjust their offense throughout the game --> anticipate these changes and counter them
+
+
+

@@ -320,7 +320,7 @@ library(protoclust)
 
 --
 
-- We can create this average shot-distance from the hoop over every 5 minutes for **each** of the 8 games SEA won
+- Idea: Average shot-distance from the hoop over every 5 minutes for **each** of the 8 games that SEA won
 
 
 
@@ -370,12 +370,14 @@ sea_df %>%
 
 
 ---
-## Distance Between Team-Trajectories
+## How do we determine dissimilarity between two games for SEA's shot-distance?
 
-- (simple solution) Euclidian distance between trajectories (A, B)
+- (simple solution) Euclidian distance between games (A, B)
   - Add the difference between each bucket for A and B and square root the result
   
 - Hierarchical clutering on the distance matrix
+
+- Maximum Linkage
 
 ```{r, include=FALSE}
 total_games <- c(401320570, 401320578, 401320583, 401320590, 401320595, 401320605, 401320610, 401320617)
@@ -405,7 +407,7 @@ annotated_game_df <- sea_df %>%
 
 ---
 
-# Clustering Team-Trajectories
+## Clustering games based on SEA's summed shot-distance
 
 .pull-left[
 ```{r, echo=FALSE, fig.height=6, fig.width=8}
@@ -616,7 +618,7 @@ def_percent_df <- readRDS("nick_data/def_percent_df.rds")
 
 def_percent_df %>% 
   ggplot() + 
-  geom_line(aes(x = idx, y = def_percent, color = team_id)) +
+  geom_line(aes(x = (2 * idx), y = def_percent, color = team_id)) +
   labs(title = "Binned Defensive Percentage for each team binned per distance", x = "Bucket Feet from Hoop", y = "Defense_Percentage") + 
   theme_bw()
 
