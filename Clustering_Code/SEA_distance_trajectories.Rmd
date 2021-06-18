@@ -1,0 +1,314 @@
+---
+title: " Analysis on SEA Team Shooting Distance Trajectories"
+author: "Nick"
+date: "6/17/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+Here is the code to my slides where I explored the question **How do the places SEA shoot from change over time?**
+
+## Loading in the data and initial wrangling
+
+
+Grabbing all the games that seattle time won. (I got the game_ids from a different script that looped through all games to count which team one.) 
+
+```{r, message=FALSE, warning=FALSE}
+library(wehoop)
+library(tidyverse)
+library(lubridate)
+library(ggdendro)
+## Preparing the data ----------------
+
+
+wnba_pbp_data <- load_wnba_pbp(2021)
+
+# Get the shots and clean this data a bit:
+wnba_shots_data <- wnba_pbp_data %>%
+  filter(shooting_play)
+# Remove unnecessary columns:
+wnba_shots_data <- wnba_shots_data %>%
+  dplyr::select(-shooting_play, -id, -participants_2_athlete_id,
+                -type_abbreviation, -season, -season_type, 
+                -home_team_spread, -game_spread, -home_favorite)
+
+write.csv(wnba_shots_data,'WNBA_shot_data.csv')
+## Loading the data for a single game ----------------
+
+wsd <-wnba_shots_data
+
+list_of_SEA_won_games <- c(401320570, 401320578, 401320583, 401320590, 401320595, 401320605, 401320610, 401320617) # removed: none
+list_of_games <- unique(wsd$game_id)
+
+##### looping through the 8 games and added them up together
+
+# initializing empty dataframe
+sea_wgames = data.frame()
+
+for (curr_game in list_of_SEA_won_games) {
+  print(paste("=> curr game: ", curr_game))
+
+
+single_game <- wsd %>% 
+  filter(game_id == curr_game)
+#game 1: 401320570 401320578 401320583 401320590 401320595 401320605 401320610 401320617
+
+sea_games <- wsd %>% 
+  filter()
+
+## Loading the data for a single game ----------------
+
+sg <- single_game %>% 
+  mutate(distance = sqrt((coordinate_x-25)^2 + coordinate_y^2)) %>% 
+  filter(coordinate_x > 0 & coordinate_y > 0) %>% 
+  mutate(sequence_number = as.integer(sequence_number))
+
+
+## Add the time (min:sec) column to the game data ----------------
+
+sg <- sg %>% 
+  # select(clock_minutes, clock_seconds, period_number, away_score, home_score) %>% 
+  mutate(seconds_elapsed_game = 600 - (as.integer(clock_minutes) * 60 + as.integer(clock_seconds))) %>% 
+  mutate(seconds_with_period = (period_number - 1) * 10 * 60 + seconds_elapsed_game) %>% 
+  mutate(time_corrected = seconds_to_period(seconds_with_period))
+
+
+
+## Adding the winning team identifier column ----------------
+
+final_score_home <- sg$home_score[length(sg$home_score)]
+# print(final_score_home)
+final_score_away <- sg$away_score[length(sg$away_score)]
+# print(final_score_away)
+
+away_id <- sg$away_team_id[1]
+home_id <- sg$home_team_id[1]
+
+away_abbrv <- sg$away_team_abbrev[1]
+home_abbrv <- sg$home_team_abbrev[1]
+
+if ( final_score_home > final_score_away) {
+  winning_id = sg$home_team_id[1]
+  losing_id = sg$away_team_id[1]
+  win_abbrv = home_abbrv
+  lose_abbrv = away_abbrv
+} else {
+  winning_id = sg$away_team_id[1]
+  losing_id = sg$home_team_id[1]
+  win_abbrv = away_abbrv
+  lose_abbrv = home_abbrv
+}
+
+sg <- sg %>% 
+  mutate(wl_abbrv = case_when(team_id == winning_id ~ paste(win_abbrv, "(W)"),
+                              team_id == losing_id ~ paste(lose_abbrv, "(L)")),
+         game_title = paste(paste(win_abbrv, "(W) vs",paste(lose_abbrv, "(L)"))))
+
+print(paste(paste(win_abbrv, "(W) vs",paste(lose_abbrv, "(L)"))))
+
+sea_wgames = rbind(sea_wgames, sg)
+}
+
+```
+
+## Creating the trajectories
+
+I'll create the trajectories by going over bins of 2 feet, distance from the
+hoop. I wrote this before I was aware of the cut function (which I use in my other scripts).
+
+
+```{r, warning=FALSE}
+
+
+### grabbing and graphing the delta distance trajectories so that I can cluster them
+
+total_games <- c(401320570, 401320578, 401320583, 401320590, 401320595, 401320605, 401320610, 401320617)
+games_of_interest <-  c(401320570)
+
+distance_df <- data.frame()
+sea_df <- data.frame()
+other_df <- data.frame()
+
+for ( curr_game_id in total_games){
+  # print(curr_game_id)
+  
+  curr_game <- sea_wgames %>% 
+    filter(game_id == curr_game_id)
+  
+  sea_traj = c()
+  other_traj = c()
+  delta_distance_per_window = c()
+
+  for ( i in seq(1,40, 5)){
+    
+    # print(i)
+    start_sec <- 60 * (i - 1)
+    end_sec <-  60 * (i)
+    
+    temp <- curr_game %>%
+      filter(time_corrected > start_sec & time_corrected < end_sec) 
+    
+    win_distance_hit = sum(filter(temp, (wl_abbrv == "SEA (W)") & scoring_play == TRUE)$distance)
+    win_distance_miss = sum(filter(temp, (wl_abbrv == "SEA (W)") & scoring_play == FALSE)$distance)
+    
+    other_distance_hit = sum(filter(temp, (wl_abbrv != "SEA (W)") & scoring_play == TRUE)$distance)
+    other_distance_miss = sum(filter(temp, (wl_abbrv != "SEA (W)") & scoring_play == FALSE)$distance)
+    
+    if(is.na(win_distance_hit)){win_distance <-  0}
+    if(is.na(win_distance_miss)){other_distance <- 0}
+    if(is.na(other_distance_hit)){win_distance <-  0}
+    if(is.na(other_distance_miss)){other_distance <- 0}
+    
+    win_distance = win_distance_hit * 1 + win_distance_miss
+    other_distance = other_distance_hit * 1 + other_distance_miss
+    
+    dist_delta <- win_distance - other_distance
+    
+    delta_distance_per_window = c(delta_distance_per_window, dist_delta)
+    
+    ## just grabbing the seattle distance evolution 
+    sea_traj = c(sea_traj, sum(filter(temp, (wl_abbrv == "SEA (W)"))$distance)) ## alternate between mean and sum
+    other_traj = c(other_traj, sum(filter(temp, (wl_abbrv != "SEA (W)"))$distance)) ## alternate between mean and sum
+    
+  }
+  min_df = data.frame(min_idx = seq(1, length(delta_distance_per_window)), delta_distance_per_window, game_id = as.factor(curr_game_id))
+  sea_min_df = data.frame(min_idx = seq(1, length(delta_distance_per_window)), sea_traj, other_traj, game_id = as.factor(curr_game_id))
+  other_min_df = data.frame(min_idx = seq(1, length(delta_distance_per_window)), other_traj, game_id = as.factor(curr_game_id))
+  
+  distance_df <- rbind(distance_df , min_df)
+  sea_df <- rbind(sea_df , sea_min_df)
+  other_df <- rbind(other_df , other_min_df)
+  
+}
+
+sea_df %>% 
+  ggplot(aes(x = min_idx, y = sea_traj, color = game_id)) +
+  geom_line() + 
+  geom_point() + 
+  ylim(0,60) + 
+  labs(title = "The SEA Distance Trajectories for 8 games binned per each 5 minutes")
+```
+
+## Pairwise distance function
+
+
+```{r}
+
+calc_traj_pairwise <- function(df, game_id1, game_id2){
+  
+  num_bins = length(unique(df$min_idx))
+  total_distance <- 0
+  
+  #pairwise distance between each datapoint and adding them together
+  for(i in seq(num_bins)){
+    game1_d <- df %>% 
+      filter(game_id == game_id1 & min_idx == i)
+    
+    game2_d <- df %>% 
+      filter(game_id == game_id2 & min_idx == i)
+    
+    bin_euc_distance <- (game1_d$sea_traj - game2_d$sea_traj)^2 ## bin_weight
+    
+    total_distance = total_distance + bin_euc_distance
+  }
+  total_distance = sqrt(total_distance)
+  
+  return (total_distance)
+}
+
+## checking
+calc_traj_pairwise(sea_df, 401320583, 401320578)
+
+```
+
+
+## Creating the distance matrix and clustering
+
+```{r}
+
+total_games <- c(401320570, 401320578, 401320583, 401320590, 401320595, 401320605, 401320610, 401320617)
+
+
+team_pairwise_dist <- map_dfr(total_games, 
+        function(game1_id){
+          map_dfr(total_games, 
+                  function(game2_id){
+                    tibble("game1" = game1_id, "game2" = game2_id, 
+                           "distance" = calc_traj_pairwise(sea_df, game1_id, game2_id))
+          })
+        }
+      )
+
+## pivot wider
+dist_wider <- pivot_wider(team_pairwise_dist, names_from = game1, values_from = distance)
+
+## removing the first label column called team1, then setting it into a matrix
+dist_matrix <- dist_wider %>% 
+  dplyr::select(-game2) %>% 
+  as.matrix()
+
+## setting the row names to be the abbrv list, which is the same order as before
+rownames(dist_matrix) <- total_games
+
+## creating a distance object out of it
+game_dist <- as.dist(dist_matrix)
+
+
+```
+
+
+```{r}
+
+game_hclust <- hclust(game_dist, method = "complete")
+
+
+
+## assign the lookup table based on how many clusters we want
+game_cluster_lookup <- tibble(game_id = as.factor(total_games) , game_cluster = as.factor(cutree(game_hclust, k = 3)))
+
+
+## annotating the original distance_percent_df with the clusters assigned
+lookup_table <- sea_wgames %>% 
+  mutate(game_id = as.factor(game_id)) %>% 
+  dplyr::select(game_id, game_title) %>% 
+  right_join(game_cluster_lookup, by = c("game_id" = "game_id")) %>% 
+  unique()
+
+lookup_table[5,2] = "SEA (W) vs MIN (L) pt2"
+lookup_table[7,2] = "SEA (W) vs DAL (L) pt2"
+
+
+## annotating the original distance_percent_df with the clusters assigned
+annotated_game_df <- sea_df %>% 
+  left_join(lookup_table, by = c("game_id" = "game_id"))
+
+## graph the clusters wrapped in different graphs
+annotated_game_df %>% 
+  ggplot() + 
+  geom_line(aes(x = min_idx, y = sea_traj, color = game_title, group = game_id)) +
+  facet_wrap(~game_cluster, ncol = 1) + 
+  # scale_x_continuous(breaks = seq(0, )) +
+  labs(title = "Binned (summed) shot distance for each team binned per distance", x = "Feet from Hoop", y = "Summed Distance")
+```
+
+## Dendrogram
+
+Here is the dendrogram demonstrated in the power point.
+
+```{r}
+
+game_hclust$labels <- lookup_table$game_title
+
+ggdendrogram(game_hclust, size = 2) + labs(y = "Dissimilarity between games", title = "Cluster Dendrogram of the SEA games")  +
+  theme(plot.title = element_text(size = 14, face = "bold"), axis.text.x = element_text(size = 14, face = "bold")) 
+
+```
+
+
+
+
